@@ -221,14 +221,14 @@ bool cmd_mode_switch(bool to_config_mode) {
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-void show_product_info(const unsigned char* info) {
+void show_product_info(const unsigned char *info) {
     printf("Product Information: ");
     for (int i = 0; i < 7; i++)
         printf("%02X ", info[i]);
     printf("\n");
 }
 
-bool read_product_info(unsigned char* info, int length) {
+bool read_product_info(unsigned char *info, int length) {
 
     serial_flush();
 
@@ -251,8 +251,8 @@ bool read_product_info(unsigned char* info, int length) {
     }
 
     if (length < 7)
-	return false;
-    memcpy (info, response + 3, 7);
+        return false;
+    memcpy(info, response + 3, 7);
     return true;
 }
 
@@ -323,11 +323,11 @@ void show_configuration(const unsigned char *config) {
     printf("Module Configuration:\n");
 
     // Module address (ADDH, ADDL)
-    const unsigned short address = config [0] << 8 | config [1];
+    const unsigned short address = config[0] << 8 | config[1];
     printf("\tAddress: 0x%04X\n", address);
 
     // Network ID (NETID)
-    const unsigned char network = config [2];
+    const unsigned char network = config[2];
     printf("\tNetwork: 0x%02X\n", network);
 
     // REG0 - UART and Air Data Rate
@@ -355,7 +355,7 @@ void show_configuration(const unsigned char *config) {
     printf("\tLBT Enable: %s\n", (reg3 & 0x10) ? "Enabled" : "Disabled");
 
     // CRYPT (not readable, will show as 0)
-    const unsigned short crypt = config [7] << 8 | config [8];
+    const unsigned short crypt = config[7] << 8 | config[8];
     printf("\tEncryption Key: 0x%04X (Note: this value is write-only)\n", crypt);
 }
 
@@ -365,14 +365,14 @@ void show_configuration(const unsigned char *config) {
 bool update_configuration(unsigned char *config) {
     bool needs_update = false;
 
-    const unsigned short address = config [0] << 8 | config [1];
+    const unsigned short address = config[0] << 8 | config[1];
     if (address != DESIRED_ADDRESS) {
         printf("Updating ADDRESS 0x%04X to 0x%04X\n", address, DESIRED_ADDRESS);
-        config[0] = (unsigned char) (DESIRED_ADDRESS >> 8);
-        config[1] = (unsigned char) (DESIRED_ADDRESS & 0xFF);
+        config[0] = (unsigned char)(DESIRED_ADDRESS >> 8);
+        config[1] = (unsigned char)(DESIRED_ADDRESS & 0xFF);
         needs_update = true;
     }
-    const unsigned char network = config [2];
+    const unsigned char network = config[2];
     if (network != DESIRED_NETWORK) {
         printf("Updating NETWORK from 0x%02X to 0x%02X\n", network, DESIRED_NETWORK);
         config[2] = DESIRED_NETWORK;
@@ -436,13 +436,13 @@ int main(int argc, char *argv[]) {
 
     msleep(COMMAND_DELAY_MS);
     printf("\nReading product information...\n");
-    unsigned char product_info [12];
-    if (!read_product_info(product_info, sizeof (product_info))) {
+    unsigned char product_info[12];
+    if (!read_product_info(product_info, sizeof(product_info))) {
         fprintf(stderr, "Failed to read product information...\n");
         serial_disconnect();
         return EXIT_FAILURE;
     }
-    show_product_info (product_info);
+    show_product_info(product_info);
 
     msleep(COMMAND_DELAY_MS);
     printf("\nReading module configuration...\n");
@@ -473,7 +473,7 @@ int main(int argc, char *argv[]) {
     }
 
     msleep(COMMAND_DELAY_MS);
-    printf ("\n");
+    printf("\n");
     if (!cmd_mode_switch(false)) {
         fprintf(stderr, "Warning: Failed to switch back to transmission mode...\n");
         serial_disconnect();
