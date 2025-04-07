@@ -1,0 +1,3 @@
+SUBSYSTEM=="usb", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", ATTRS{bcdDevice}=="8233", MODE="0666"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", ATTRS{bcdDevice}=="8233", MODE="0666", GROUP="dialout", SYMLINK+="e22900t22u"
+KERNEL=="ttyUSB*", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", ATTRS{bcdDevice}=="8233", MODE="0666", GROUP="dialout", SYMLINK+="e22900t22u"
