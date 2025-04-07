@@ -32,9 +32,8 @@
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-#define DESIRED_ADDH 0x00
-#define DESIRED_ADDL 0x02
-#define DESIRED_NETID 0x00
+#define DESIRED_ADDRESS 0x0002
+#define DESIRED_NETWORK 0x00
 #define DESIRED_CHANNEL 0x17 // Channel 23 (868.125 + 23 = 891.125 MHz)
 
 const char *get_uart_baud_rate(unsigned char reg_value);
@@ -222,7 +221,14 @@ bool cmd_mode_switch(bool to_config_mode) {
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-bool read_product_info(void) {
+void show_product_info(const unsigned char* info) {
+    printf("Product Information: ");
+    for (int i = 0; i < 7; i++)
+        printf("%02X ", info[i]);
+    printf("\n");
+}
+
+bool read_product_info(unsigned char* info, int length) {
 
     serial_flush();
 
@@ -244,20 +250,9 @@ bool read_product_info(void) {
         return false;
     }
 
-    printf("Product Information: ");
-    for (int i = 0; i < 7; i++)
-        printf("%02X ", response[3 + i]);
-    printf("\n");
-    printf("Product Info (ASCII): ");
-    for (int i = 0; i < 7; i++) {
-        if (isprint(response[3 + i])) {
-            printf("%c", response[3 + i]);
-        } else {
-            printf(".");
-        }
-    }
-    printf("\n");
-
+    if (length < 7)
+	return false;
+    memcpy (info, response + 3, 7);
     return true;
 }
 
@@ -324,41 +319,44 @@ bool write_configuration(const unsigned char *config) {
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-void print_configuration(const unsigned char *config) {
+void show_configuration(const unsigned char *config) {
     printf("Module Configuration:\n");
-    printf("---------------------\n");
 
     // Module address (ADDH, ADDL)
-    printf("Module Address: 0x%02X%02X\n", config[0], config[1]);
+    const unsigned short address = config [0] << 8 | config [1];
+    printf("\tAddress: 0x%04X\n", address);
 
     // Network ID (NETID)
-    printf("Network ID: 0x%02X\n", config[2]);
+    const unsigned char network = config [2];
+    printf("\tNetwork: 0x%02X\n", network);
 
     // REG0 - UART and Air Data Rate
-    unsigned char reg0 = config[3];
-    printf("UART Baud Rate: %s\n", get_uart_baud_rate(reg0));
-    printf("UART Parity: %s\n", get_uart_parity(reg0));
-    printf("Air Data Rate: %s\n", get_air_data_rate(reg0));
+    const unsigned char reg0 = config[3];
+    printf("\tUART Baud Rate: %s\n", get_uart_baud_rate(reg0));
+    printf("\tUART Parity: %s\n", get_uart_parity(reg0));
+    printf("\tAir Data Rate: %s\n", get_air_data_rate(reg0));
 
     // REG1 - Subpacket size and other settings
-    unsigned char reg1 = config[4];
-    printf("Subpacket Size: %s\n", get_subpacket_size(reg1));
-    printf("RSSI Ambient Noise Enable: %s\n", (reg1 & 0x20) ? "Enabled" : "Disabled");
-    printf("Software Mode Switching: %s\n", (reg1 & 0x04) ? "Enabled" : "Disabled");
-    printf("Transmission Power: %s\n", get_transmission_power(reg1));
+    const unsigned char reg1 = config[4];
+    printf("\tSubpacket Size: %s\n", get_subpacket_size(reg1));
+    printf("\tRSSI Ambient Noise Enable: %s\n", (reg1 & 0x20) ? "Enabled" : "Disabled");
+    printf("\tSoftware Mode Switching: %s\n", (reg1 & 0x04) ? "Enabled" : "Disabled");
+    printf("\tTransmission Power: %s\n", get_transmission_power(reg1));
 
     // REG2 - Channel Control (CH)
-    printf("Channel: %d (Actual frequency: %.3f MHz)\n", config[5], 850.125 + config[5]);
+    const unsigned char reg2 = config[5];
+    printf("\tChannel: %d (Actual frequency: %.3f MHz)\n", reg2, 850.125 + reg2);
 
     // REG3 - Various options
-    unsigned char reg3 = config[6];
-    printf("RSSI Bytes Enable: %s\n", (reg3 & 0x80) ? "Enabled" : "Disabled");
-    printf("Transmission Method: %s\n", (reg3 & 0x40) ? "Fixed-point" : "Transparent");
-    printf("Relay Function: %s\n", (reg3 & 0x20) ? "Enabled" : "Disabled");
-    printf("LBT Enable: %s\n", (reg3 & 0x10) ? "Enabled" : "Disabled");
+    const unsigned char reg3 = config[6];
+    printf("\tRSSI Bytes Enable: %s\n", (reg3 & 0x80) ? "Enabled" : "Disabled");
+    printf("\tTransmission Method: %s\n", (reg3 & 0x40) ? "Fixed-point" : "Transparent");
+    printf("\tRelay Function: %s\n", (reg3 & 0x20) ? "Enabled" : "Disabled");
+    printf("\tLBT Enable: %s\n", (reg3 & 0x10) ? "Enabled" : "Disabled");
 
     // CRYPT (not readable, will show as 0)
-    printf("Encryption Key: 0x%02X%02X (Note: this value is write-only)\n", config[7], config[8]);
+    const unsigned short crypt = config [7] << 8 | config [8];
+    printf("\tEncryption Key: 0x%04X (Note: this value is write-only)\n", crypt);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
@@ -367,52 +365,45 @@ void print_configuration(const unsigned char *config) {
 bool update_configuration(unsigned char *config) {
     bool needs_update = false;
 
-    if (config[0] != DESIRED_ADDH) {
-        printf("Updating ADDH from 0x%02X to 0x%02X\n", config[0], DESIRED_ADDH);
-        config[0] = DESIRED_ADDH;
+    const unsigned short address = config [0] << 8 | config [1];
+    if (address != DESIRED_ADDRESS) {
+        printf("Updating ADDRESS 0x%04X to 0x%04X\n", address, DESIRED_ADDRESS);
+        config[0] = (unsigned char) (DESIRED_ADDRESS >> 8);
+        config[1] = (unsigned char) (DESIRED_ADDRESS & 0xFF);
         needs_update = true;
     }
-
-    if (config[1] != DESIRED_ADDL) {
-        printf("Updating ADDL from 0x%02X to 0x%02X\n", config[1], DESIRED_ADDL);
-        config[1] = DESIRED_ADDL;
+    const unsigned char network = config [2];
+    if (network != DESIRED_NETWORK) {
+        printf("Updating NETWORK from 0x%02X to 0x%02X\n", network, DESIRED_NETWORK);
+        config[2] = DESIRED_NETWORK;
         needs_update = true;
     }
-
-    if (config[2] != DESIRED_NETID) {
-        printf("Updating Network ID from 0x%02X to 0x%02X\n", config[2], DESIRED_NETID);
-        config[2] = DESIRED_NETID;
-        needs_update = true;
-    }
-
-    if (!(config[4] & 0x20)) {
-        printf("Enabling RSSI environmental noise\n");
-        config[4] |= 0x20;
-        needs_update = true;
-    }
-
-    if (!(config[4] & 0x04)) {
-        printf("Enabling software mode switching\n");
-        config[4] |= 0x04;
-        needs_update = true;
-    }
-
-    if (!(config[6] & 0x80)) {
-        printf("Enabling RSSI bytes\n");
-        config[6] |= 0x80;
-        needs_update = true;
-    }
-
-    if (config[5] != DESIRED_CHANNEL) {
-        printf("Updating channel from %d to %d\n", config[5], DESIRED_CHANNEL);
+    const unsigned char channel = config[5];
+    if (channel != DESIRED_CHANNEL) {
+        printf("Updating channel from %d to %d\n", channel, DESIRED_CHANNEL);
         config[5] = DESIRED_CHANNEL;
         needs_update = true;
     }
 
-    if (!needs_update) {
-        printf("Configuration is already up to date\n");
-        return false;
+    if (!(config[4] & 0x20)) {
+        printf("Enabling RSSI environmental noise to ON\n");
+        config[4] |= 0x20;
+        needs_update = true;
     }
+    if (!(config[6] & 0x80)) {
+        printf("Enabling RSSI bytes to ON\n");
+        config[6] |= 0x80;
+        needs_update = true;
+    }
+
+    if (!(config[4] & 0x04)) {
+        printf("Enabling software mode switching to ON\n");
+        config[4] |= 0x04;
+        needs_update = true;
+    }
+
+    if (!needs_update)
+        return false;
 
     printf("Configuration needs updating\n");
     return true;
@@ -424,7 +415,6 @@ bool update_configuration(unsigned char *config) {
 int main(int argc, char *argv[]) {
     const char *port = SERIAL_PORT_DEFAULT;
     int baud_rate = SERIAL_RATE_DEFAULT;
-    unsigned char config[9];
 
     printf("E22-900T22U Configuration Manager\n");
     printf("--------------------------------\n");
@@ -446,33 +436,35 @@ int main(int argc, char *argv[]) {
 
     msleep(COMMAND_DELAY_MS);
     printf("\nReading product information...\n");
-    if (!read_product_info()) {
+    unsigned char product_info [12];
+    if (!read_product_info(product_info, sizeof (product_info))) {
         fprintf(stderr, "Failed to read product information...\n");
         serial_disconnect();
         return EXIT_FAILURE;
     }
+    show_product_info (product_info);
 
     msleep(COMMAND_DELAY_MS);
-    printf("\nReading configuration...\n");
+    printf("\nReading module configuration...\n");
+    unsigned char config[9];
     if (!read_configuration(config)) {
         fprintf(stderr, "Failed to read configuration...\n");
         serial_disconnect();
         return EXIT_FAILURE;
     }
-    print_configuration(config);
+    show_configuration(config);
 
-    printf("\nChecking if configuration needs updates...\n");
-    unsigned char config_2[9];
     if (update_configuration(config)) {
         msleep(COMMAND_DELAY_MS);
-        printf("\nWriting updated configuration...\n");
+        printf("\nWriting updated module configuration...\n");
         if (!write_configuration(config)) {
             fprintf(stderr, "Failed to write configuration...\n");
             serial_disconnect();
             return EXIT_FAILURE;
         }
         msleep(COMMAND_DELAY_MS);
-        printf("\nVerifying updated configuration...\n");
+        printf("\nVerifying updated module configuration...\n");
+        unsigned char config_2[9];
         if (!read_configuration(config_2) || memcmp(config, config_2, sizeof(config)) != 0) {
             fprintf(stderr, "Failed to verify configuration updates\n");
             serial_disconnect();
@@ -481,6 +473,7 @@ int main(int argc, char *argv[]) {
     }
 
     msleep(COMMAND_DELAY_MS);
+    printf ("\n");
     if (!cmd_mode_switch(false)) {
         fprintf(stderr, "Warning: Failed to switch back to transmission mode...\n");
         serial_disconnect();
@@ -488,7 +481,6 @@ int main(int argc, char *argv[]) {
     }
 
     serial_disconnect();
-    printf("\nConfiguration management complete\n");
     return EXIT_SUCCESS;
 }
 
