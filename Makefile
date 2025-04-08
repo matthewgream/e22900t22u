@@ -1,7 +1,7 @@
 
 CC = gcc
 CFLAGS = -O6 -Wall -Wextra -Wpedantic
-LDFLAGS = -lmosquitto
+# LDFLAGS = -lmosquitto
 TARGET = e22900t22u
 HOSTNAME = $(shell hostname)
 
@@ -21,6 +21,7 @@ test: $(TARGET)
 ##
 
 SYSTEMD_DIR = /etc/systemd/system
+UDEVRULES_DIR = /etc/udev/rules.d
 define install_systemd_service
 	-systemctl stop $(1) 2>/dev/null || true
 	-systemctl disable $(1) 2>/dev/null || true
@@ -29,12 +30,12 @@ define install_systemd_service
 	systemctl enable $(1)
 	systemctl start $(1) || echo "Warning: Failed to start $(1)"
 endef
-install_target: $(TARGET).service
+install_syystemd_service: $(TARGET).service
 	$(call install_systemd_service,$(TARGET),$(TARGET))
-install_udev:
-	cp 90-*.rules /etc/udev/rules.d
+install_udev_rules: 90-$(TARGET).rules
+	cp 90-$(TARGET).rules $(UDEVRULES_DIR)
 	udevadm control --reload-rules
 	udevadm trigger
-install: install_udev install_target
-.PHONY: install install_target
+install: install_udev_rules install_systemd_service
+.PHONY: install install_systemd_service install_udev_rules
 
