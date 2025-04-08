@@ -40,16 +40,16 @@
 
 bool e22900t22u_debug = false;
 
-const char *get_uart_rate(unsigned char value);
-const char *get_uart_parity(unsigned char value);
-const char *get_packet_rate(unsigned char value);
-const char *get_packet_size(unsigned char value);
-const char *get_transmit_power(unsigned char value);
+const char *get_uart_rate(const unsigned char value);
+const char *get_uart_parity(const unsigned char value);
+const char *get_packet_rate(const unsigned char value);
+const char *get_packet_size(const unsigned char value);
+const char *get_transmit_power(const unsigned char value);
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-void hexdump(const unsigned char *data, int size) {
+void hexdump(const unsigned char *data, const int size) {
 
     static const int bytes_per_line = 16;
 
@@ -81,7 +81,7 @@ void hexdump(const unsigned char *data, int size) {
 
 int serial_fd = -1;
 
-bool serial_connect(const char *port, int baud_rate) {
+bool serial_connect(const char *port, const int rate) {
 
     serial_fd = open(port, O_RDWR | O_NOCTTY);
     if (serial_fd < 0) {
@@ -98,7 +98,7 @@ bool serial_connect(const char *port, int baud_rate) {
         return false;
     }
     speed_t baud;
-    switch (baud_rate) {
+    switch (rate) {
     case 1200:
         baud = B1200;
         break;
@@ -124,7 +124,7 @@ bool serial_connect(const char *port, int baud_rate) {
         baud = B115200;
         break;
     default:
-        fprintf(stderr, "serial: unsupported baud rate: %d\n", baud_rate);
+        fprintf(stderr, "serial: unsupported baud rate: %d\n", rate);
         close(serial_fd);
         serial_fd = -1;
         return false;
@@ -174,7 +174,7 @@ int serial_write(const unsigned char *buffer, const int length) {
     return (int)write(serial_fd, buffer, length);
 }
 
-int serial_read(unsigned char *buffer, const int length, int timeout_ms) {
+int serial_read(unsigned char *buffer, const int length, const int timeout_ms) {
     if (serial_fd < 0)
         return -1;
     fd_set rdset;
@@ -192,7 +192,7 @@ int serial_read(unsigned char *buffer, const int length, int timeout_ms) {
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-bool device_packet_read(unsigned char *packet, int max_size, int *packet_size, unsigned char *rssi) {
+bool device_packet_read(unsigned char *packet, const int max_size, int *packet_size, unsigned char *rssi) {
     if (serial_fd < 0)
         return false;
 
@@ -236,7 +236,7 @@ bool device_packet_read(unsigned char *packet, int max_size, int *packet_size, u
     return true;
 }
 
-void device_packet_display(const unsigned char *packet, int packet_size, unsigned char rssi) {
+void device_packet_display(const unsigned char *packet, const int packet_size, const unsigned char rssi) {
     printf("-------------------------------- PACKET --------------------------------\n");
     printf("size=%d bytes", packet_size);
     if (CONFIG_RSSI_PACKET)
@@ -249,7 +249,7 @@ void device_packet_display(const unsigned char *packet, int packet_size, unsigne
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-bool device_cmd_send(const unsigned char *cmd, int cmd_len) {
+bool device_cmd_send(const unsigned char *cmd, const int cmd_len) {
 
     usleep(COMMAND_DELAY_MS * 1000);
 
@@ -263,7 +263,7 @@ bool device_cmd_send(const unsigned char *cmd, int cmd_len) {
     return serial_write(cmd, cmd_len) == cmd_len;
 }
 
-int device_cmd_recv_response(unsigned char *buffer, int buffer_length, int timeout_ms) {
+int device_cmd_recv_response(unsigned char *buffer, const int buffer_length, const int timeout_ms) {
 
     const int read_len = serial_read(buffer, buffer_length, timeout_ms);
 
@@ -288,7 +288,7 @@ int device_cmd_recv_response(unsigned char *buffer, int buffer_length, int timeo
 #define DEVICE_CMD_HEADER_LENGTH_OFFSET 2
 
 bool device_cmd_send_wrapper(const char *name, const unsigned char *command, const int command_length,
-                             unsigned char *response, int response_length) {
+                             unsigned char *response, const int response_length) {
 
     if (command_length < DEVICE_CMD_HEADER_SIZE)
         return false;
@@ -356,12 +356,12 @@ void device_channel_rssi_display(unsigned char rssi_value) {
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-bool device_mode_switch(bool to_config_mode) {
+bool device_mode_switch(const bool to_config_mode) {
 
     static const unsigned char cmd_switch_to_config[] = {0xC0, 0xC1, 0xC2, 0xC3, 0x02, 0x01};
     static const unsigned char cmd_switch_to_transmit[] = {0xC0, 0xC1, 0xC2, 0xC3, 0x02, 0x00};
 
-    const char *name = "mode_switch";
+    static const char *name = "mode_switch";
     const unsigned char *command = to_config_mode ? cmd_switch_to_config : cmd_switch_to_transmit;
     const int command_length = to_config_mode ? sizeof(cmd_switch_to_config) : sizeof(cmd_switch_to_transmit);
 
@@ -393,7 +393,7 @@ bool device_mode_switch(bool to_config_mode) {
 #define DEVICE_PRODUCT_INFO_SIZE 7
 
 bool device_product_info_read(unsigned char *result) {
-    const unsigned char cmd[] = {0xC1, 0x80, DEVICE_PRODUCT_INFO_SIZE};
+    static const unsigned char cmd[] = {0xC1, 0x80, DEVICE_PRODUCT_INFO_SIZE};
     return device_cmd_send_wrapper("device_product_info_read", cmd, sizeof(cmd), result, DEVICE_PRODUCT_INFO_SIZE);
 }
 
@@ -411,7 +411,7 @@ void device_product_info_display(const unsigned char *info) {
 #define DEVICE_MODULE_CONFIG_SIZE_WRITE 7
 
 bool device_module_config_read(unsigned char *config) {
-    const unsigned char cmd[] = {0xC1, 0x00, DEVICE_MODULE_CONFIG_SIZE};
+    static const unsigned char cmd[] = {0xC1, 0x00, DEVICE_MODULE_CONFIG_SIZE};
     return device_cmd_send_wrapper("read_module_config", cmd, sizeof(cmd), config, DEVICE_MODULE_CONFIG_SIZE);
 }
 
@@ -576,9 +576,10 @@ bool device_config_read_and_update() {
 }
 
 void device_packet_read_and_display(void) {
-    printf("device: packet read and display\n");
 
-    const int max_packet_size = 256;
+    printf("device: packet read and display (with periodic channel_rssi)\n");
+
+    static const int max_packet_size = 256;
     unsigned char packet_buffer[max_packet_size];
 
     while (1) {
@@ -597,8 +598,8 @@ void device_packet_read_and_display(void) {
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
 int main(int argc, char *argv[]) {
-    const char *port = SERIAL_PORT_DEFAULT;
-    int rate = SERIAL_RATE_DEFAULT;
+    static const char *port = SERIAL_PORT_DEFAULT;
+    static int rate = SERIAL_RATE_DEFAULT;
     printf("E22-900T22U\n");
     if (!device_connect(port, rate))
         return EXIT_FAILURE;
@@ -615,7 +616,7 @@ int main(int argc, char *argv[]) {
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-const char *get_uart_rate(unsigned char value) {
+const char *get_uart_rate(const unsigned char value) {
     switch ((value >> 5) & 0x07) {
     case 0:
         return "1200bps";
@@ -638,7 +639,7 @@ const char *get_uart_rate(unsigned char value) {
     }
 }
 
-const char *get_uart_parity(unsigned char value) {
+const char *get_uart_parity(const unsigned char value) {
     switch ((value >> 3) & 0x03) {
     case 0:
         return "8N1 (Default)";
@@ -653,7 +654,7 @@ const char *get_uart_parity(unsigned char value) {
     }
 }
 
-const char *get_packet_rate(unsigned char value) {
+const char *get_packet_rate(const unsigned char value) {
     switch (value & 0x07) {
     case 0:
         return "2.4kbps";
@@ -676,7 +677,7 @@ const char *get_packet_rate(unsigned char value) {
     }
 }
 
-const char *get_packet_size(unsigned char value) {
+const char *get_packet_size(const unsigned char value) {
     switch ((value >> 6) & 0x03) {
     case 0:
         return "240bytes (Default)";
@@ -691,7 +692,7 @@ const char *get_packet_size(unsigned char value) {
     }
 }
 
-const char *get_transmit_power(unsigned char value) {
+const char *get_transmit_power(const unsigned char value) {
     switch (value & 0x03) {
     case 0:
         return "22dBm (Default)";
