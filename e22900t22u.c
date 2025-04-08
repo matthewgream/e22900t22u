@@ -49,6 +49,36 @@ const char *get_transmit_power(unsigned char value);
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
+void hexdump(const unsigned char *data, int size) {
+
+    static const int bytes_per_line = 16;
+
+    for (int offset = 0; offset < size; offset += bytes_per_line) {
+        printf("%04x: ", offset);
+        for (int i = 0; i < bytes_per_line; i++) {
+            if (i == bytes_per_line / 2)
+                printf(" ");
+            if (offset + i < size)
+                printf("%02x ", data[offset + i]);
+            else
+                printf("   ");
+        }
+        printf(" ");
+        for (int i = 0; i < bytes_per_line; i++) {
+            if (i == bytes_per_line / 2)
+                printf(" ");
+            if (offset + i < size)
+                printf("%c", isprint(data[offset + i]) ? data[offset + i] : '.');
+            else
+                printf(" ");
+        }
+        printf("\n");
+    }
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------------------------------------------------------------------
+
 int serial_fd = -1;
 
 bool serial_connect(const char *port, int baud_rate) {
@@ -138,12 +168,88 @@ void serial_flush(void) {
     tcflush(serial_fd, TCIOFLUSH);
 }
 
+int serial_write(const unsigned char *buffer, const int length) {
+    if (serial_fd < 0)
+        return -1;
+    return (int)write(serial_fd, buffer, length);
+}
+
+int serial_read(unsigned char *buffer, const int length, int timeout_ms) {
+    if (serial_fd < 0)
+        return -1;
+    fd_set rdset;
+    struct timeval tv;
+    FD_ZERO(&rdset);
+    FD_SET(serial_fd, &rdset);
+    tv.tv_sec = timeout_ms / 1000;
+    tv.tv_usec = (timeout_ms % 1000) * 1000;
+    const int select_result = select(serial_fd + 1, &rdset, NULL, NULL, &tv);
+    if (select_result <= 0)
+        return select_result; // timeout or error
+    return read(serial_fd, buffer, length);
+}
+
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-bool cmd_send(const unsigned char *cmd, int cmd_len) {
+bool device_packet_read(unsigned char *packet, int max_size, int *packet_size, unsigned char *rssi) {
     if (serial_fd < 0)
         return false;
+
+    fd_set rdset;
+    struct timeval tv;
+    FD_ZERO(&rdset);
+    FD_SET(serial_fd, &rdset);
+    tv.tv_sec = 5;
+    tv.tv_usec = 0;
+    if (select(serial_fd + 1, &rdset, NULL, NULL, &tv) <= 0)
+        return false;
+    int bytes_read = 0;
+    unsigned char byte;
+    bool packet_complete = false;
+    while (bytes_read < max_size) {
+        FD_ZERO(&rdset);
+        FD_SET(serial_fd, &rdset);
+        tv.tv_sec = 0;
+        tv.tv_usec = 100000;
+        if (select(serial_fd + 1, &rdset, NULL, NULL, &tv) <= 0) {
+            packet_complete = true;
+            break;
+        }
+        if (read(serial_fd, &byte, 1) != 1)
+            break;
+        packet[bytes_read++] = byte;
+    }
+    if (!packet_complete && bytes_read >= max_size) {
+        fprintf(stderr, "device: packet_read: packet too large (max %d bytes)\n", max_size);
+        return false;
+    }
+    if (bytes_read < 1)
+        return false;
+    if (CONFIG_RSSI_PACKET && bytes_read > 0) {
+        *rssi = packet[bytes_read - 1];
+        *packet_size = bytes_read - 1;
+    } else {
+        *rssi = 0;
+        *packet_size = bytes_read;
+    }
+    return true;
+}
+
+void device_packet_display(const unsigned char *packet, int packet_size, unsigned char rssi) {
+    printf("-------------------------------- PACKET --------------------------------\n");
+    printf("size=%d bytes", packet_size);
+    if (CONFIG_RSSI_PACKET)
+        printf(", rssi=%.2fdBm", -((float)rssi / 2.0));
+    printf("\n");
+    hexdump(packet, packet_size);
+    printf("----------------------------------------------------------------------\n");
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------------------------------------------------------------------
+
+bool device_cmd_send(const unsigned char *cmd, int cmd_len) {
 
     usleep(COMMAND_DELAY_MS * 1000);
 
@@ -154,36 +260,25 @@ bool cmd_send(const unsigned char *cmd, int cmd_len) {
         printf("\n");
     }
 
-    return write(serial_fd, cmd, cmd_len) == (ssize_t)cmd_len;
+    return serial_write(cmd, cmd_len) == cmd_len;
 }
 
-int cmd_recv_response(unsigned char *buffer, int buffer_length, int timeout_ms) {
-    if (serial_fd < 0)
-        return -1;
+int device_cmd_recv_response(unsigned char *buffer, int buffer_length, int timeout_ms) {
 
-    fd_set rdset;
-    struct timeval tv;
-    FD_ZERO(&rdset);
-    FD_SET(serial_fd, &rdset);
-    tv.tv_sec = timeout_ms / 1000;
-    tv.tv_usec = (timeout_ms % 1000) * 1000;
-    int select_result = select(serial_fd + 1, &rdset, NULL, NULL, &tv);
-    if (select_result <= 0)
-        return select_result; // timeout or error
-    const int bytes_read = read(serial_fd, buffer, buffer_length);
+    const int read_len = serial_read(buffer, buffer_length, timeout_ms);
 
     if (e22900t22u_debug) {
-        if (bytes_read > 0) {
-            printf("command: recv: (%d bytes): ", bytes_read);
-            for (int i = 0; i < bytes_read && i < 32; i++)
+        if (read_len > 0) {
+            printf("command: recv: (%d bytes): ", read_len);
+            for (int i = 0; i < read_len && i < 32; i++)
                 printf("%02X ", buffer[i]);
-            if (bytes_read > 32)
+            if (read_len > 32)
                 printf("...");
             printf("\n");
         }
     }
 
-    return bytes_read;
+    return read_len;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
@@ -192,19 +287,21 @@ int cmd_recv_response(unsigned char *buffer, int buffer_length, int timeout_ms) 
 #define DEVICE_CMD_HEADER_SIZE 3
 #define DEVICE_CMD_HEADER_LENGTH_OFFSET 2
 
-bool cmd_send_wrapper(const char *name, const unsigned char *command, const int command_length, unsigned char *response,
-                      int response_length) {
+bool device_cmd_send_wrapper(const char *name, const unsigned char *command, const int command_length,
+                             unsigned char *response, int response_length) {
+
     if (command_length < DEVICE_CMD_HEADER_SIZE)
         return false;
     if (response_length < command[DEVICE_CMD_HEADER_LENGTH_OFFSET])
         return false;
-    if (!cmd_send(command, command_length)) {
+    if (!device_cmd_send(command, command_length)) {
         fprintf(stderr, "device: %s: failed to send command\n", name);
         return false;
     }
+
     unsigned char buffer[64];
     const int length = DEVICE_CMD_HEADER_SIZE + command[DEVICE_CMD_HEADER_LENGTH_OFFSET];
-    const int read_len = cmd_recv_response(buffer, length, SERIAL_READ_TIMEOUT);
+    const int read_len = device_cmd_recv_response(buffer, length, SERIAL_READ_TIMEOUT);
     if (read_len < length) {
         fprintf(stderr, "device: %s: failed to read response, received %d bytes, expected %d bytes\n", name, read_len,
                 length);
@@ -214,6 +311,7 @@ bool cmd_send_wrapper(const char *name, const unsigned char *command, const int 
         fprintf(stderr, "device: %s: invalid response header: %02X %02X %02X\n", name, buffer[0], buffer[1], buffer[2]);
         return false;
     }
+
     memcpy(response, buffer + DEVICE_CMD_HEADER_SIZE, command[DEVICE_CMD_HEADER_LENGTH_OFFSET]);
     return true;
 }
@@ -221,22 +319,60 @@ bool cmd_send_wrapper(const char *name, const unsigned char *command, const int 
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-bool cmd_mode_switch(bool to_config_mode) {
+bool device_channel_rssi_read(unsigned char *rssi_value) {
 
-    static const unsigned char cmd_switch_to_config[6] = {0xC0, 0xC1, 0xC2, 0xC3, 0x02, 0x01};
-    static const unsigned char cmd_switch_to_transmit[6] = {0xC0, 0xC1, 0xC2, 0xC3, 0x02, 0x00};
+    static const char *name = "channel_rssi_read";
+    static const unsigned char command[] = {0xC0, 0xC1, 0xC2, 0xC3, 0x00, 0x01};
+    static const int command_length = sizeof(command);
+
+    serial_flush();
+    if (serial_write(command, command_length) != command_length) {
+        fprintf(stderr, "device: %s: failed to send command\n", name);
+        return false;
+    }
+
+    unsigned char buffer[4];
+    const int length = sizeof(buffer);
+    const int read_len = serial_read(buffer, length, 1000);
+    if (read_len < length) {
+        fprintf(stderr, "device: %s: failed, received %d bytes, expected %d bytes\n", name, read_len, length);
+        return false;
+    }
+    if (buffer[0] != 0xC1 || buffer[1] != 0x00 || buffer[2] != 0x01) {
+        fprintf(stderr, "device: %s: invalid response header: %02X %02X %02X %02X\n", name, buffer[0], buffer[1],
+                buffer[2], buffer[3]);
+        return false;
+    }
+
+    *rssi_value = buffer[3];
+    return true;
+}
+
+void device_channel_rssi_display(unsigned char rssi_value) {
+    const int rssi_dbm = -((int)rssi_value) / 2;
+    printf("device: channel-rssi: %d dBm\n", rssi_dbm);
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------------------------------------------------------------------
+
+bool device_mode_switch(bool to_config_mode) {
+
+    static const unsigned char cmd_switch_to_config[] = {0xC0, 0xC1, 0xC2, 0xC3, 0x02, 0x01};
+    static const unsigned char cmd_switch_to_transmit[] = {0xC0, 0xC1, 0xC2, 0xC3, 0x02, 0x00};
 
     const char *name = "mode_switch";
     const unsigned char *command = to_config_mode ? cmd_switch_to_config : cmd_switch_to_transmit;
     const int command_length = to_config_mode ? sizeof(cmd_switch_to_config) : sizeof(cmd_switch_to_transmit);
 
-    if (!cmd_send(command, command_length)) {
+    if (!device_cmd_send(command, command_length)) {
         fprintf(stderr, "device: %s: failed to send command\n", name);
         return false;
     }
+
     unsigned char buffer[64];
     const int length = command_length - 1;
-    const int read_len = cmd_recv_response(buffer, length, SERIAL_READ_TIMEOUT);
+    const int read_len = device_cmd_recv_response(buffer, length, SERIAL_READ_TIMEOUT);
     if (read_len < length) {
         fprintf(stderr, "device: %s: failed, received %d bytes, expected %d bytes\n", name, read_len, length);
         return false;
@@ -248,7 +384,6 @@ bool cmd_mode_switch(bool to_config_mode) {
     }
 
     printf("device: %s: --> %s\n", name, to_config_mode ? "config" : "transmit");
-
     return true;
 }
 
@@ -259,7 +394,7 @@ bool cmd_mode_switch(bool to_config_mode) {
 
 bool device_product_info_read(unsigned char *result) {
     const unsigned char cmd[] = {0xC1, 0x80, DEVICE_PRODUCT_INFO_SIZE};
-    return cmd_send_wrapper("device_product_info_read", cmd, sizeof(cmd), result, DEVICE_PRODUCT_INFO_SIZE);
+    return device_cmd_send_wrapper("device_product_info_read", cmd, sizeof(cmd), result, DEVICE_PRODUCT_INFO_SIZE);
 }
 
 void device_product_info_display(const unsigned char *info) {
@@ -277,7 +412,7 @@ void device_product_info_display(const unsigned char *info) {
 
 bool device_module_config_read(unsigned char *config) {
     const unsigned char cmd[] = {0xC1, 0x00, DEVICE_MODULE_CONFIG_SIZE};
-    return cmd_send_wrapper("read_module_config", cmd, sizeof(cmd), config, DEVICE_MODULE_CONFIG_SIZE);
+    return device_cmd_send_wrapper("read_module_config", cmd, sizeof(cmd), config, DEVICE_MODULE_CONFIG_SIZE);
 }
 
 bool device_module_config_write(const unsigned char *config) {
@@ -285,7 +420,7 @@ bool device_module_config_write(const unsigned char *config) {
                                                                                    DEVICE_MODULE_CONFIG_SIZE_WRITE};
     memcpy(cmd + DEVICE_CMD_HEADER_SIZE, config, DEVICE_MODULE_CONFIG_SIZE_WRITE);
     unsigned char result[DEVICE_MODULE_CONFIG_SIZE_WRITE];
-    if (!cmd_send_wrapper("write_module_config", cmd, sizeof(cmd), result, DEVICE_MODULE_CONFIG_SIZE_WRITE))
+    if (!device_cmd_send_wrapper("write_module_config", cmd, sizeof(cmd), result, DEVICE_MODULE_CONFIG_SIZE_WRITE))
         return false;
     for (int i = 0; i < DEVICE_MODULE_CONFIG_SIZE_WRITE; i++) {
         if (result[i] != config[i]) {
@@ -440,6 +575,24 @@ bool device_config_read_and_update() {
     return true;
 }
 
+void device_packet_read_and_display(void) {
+    printf("device: packet read and display\n");
+
+    const int max_packet_size = 256;
+    unsigned char packet_buffer[max_packet_size];
+
+    while (1) {
+        int packet_size;
+        unsigned char rssi;
+        if (device_packet_read(packet_buffer, max_packet_size, &packet_size, &rssi)) {
+            device_packet_display(packet_buffer, packet_size, rssi);
+        } else {
+            if (device_channel_rssi_read(&rssi))
+                device_channel_rssi_display(rssi);
+        }
+    }
+}
+
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
@@ -450,8 +603,11 @@ int main(int argc, char *argv[]) {
     if (!device_connect(port, rate))
         return EXIT_FAILURE;
     bool code = EXIT_FAILURE;
-    if (cmd_mode_switch(true) && device_info_display() && device_config_read_and_update() && cmd_mode_switch(false))
+    if (device_mode_switch(true) && device_info_display() && device_config_read_and_update() &&
+        device_mode_switch(false)) {
         code = EXIT_SUCCESS;
+        device_packet_read_and_display();
+    }
     device_disconnect();
     return code;
 }
