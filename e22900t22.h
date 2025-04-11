@@ -487,6 +487,19 @@ bool update_configuration(unsigned char *config_device) {
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
+bool device_config(const e22900t22_config_t *config_device) {
+    memcpy(&config, config_device, sizeof(e22900t22_config_t));
+    if (!config.read_timeout_command)
+        config.read_timeout_command = CONFIG_READ_TIMEOUT_COMMAND_DEFAULT;
+    if (!config.read_timeout_packet)
+        config.read_timeout_packet = CONFIG_READ_TIMEOUT_PACKET_DEFAULT;
+#ifdef E22900T22_SUPPORT_MODULE_DIP
+    if (module == E22900T22_MODULE_DIP && (config.set_pin_mx == NULL || config.get_pin_aux == NULL))
+        return false;
+#endif
+    return true;
+}
+
 bool device_connect(const e22900t22_module_t config_module, const e22900t22_config_t *config_device,
                     const serial_config_t *config_serial) {
 
@@ -504,7 +517,10 @@ bool device_connect(const e22900t22_module_t config_module, const e22900t22_conf
 #endif
     module = config_module;
 
-    memcpy(&config, config_device, sizeof(e22900t22_config_t));
+    if (!device_config(config_device)) {
+        PRINTF_ERROR("device: failed to set config\n");
+        return false;
+    }
 
     if (!serial_connect(config_serial)) {
         PRINTF_ERROR("device: failed to connect (port=%s, rate=%d, bits=%s)\n", config_serial->port,
@@ -576,10 +592,10 @@ void device_packet_read_and_display(volatile bool *is_active) {
     unsigned char rssi;
 
     while (*is_active) {
-        if (device_packet_read(packet_buffer, max_packet_size, &packet_size, &rssi))
+        if (device_packet_read(packet_buffer, max_packet_size, &packet_size, &rssi) && *is_active) {
             device_packet_display(packet_buffer, packet_size, rssi);
-        else {
-            if (device_channel_rssi_read(&rssi))
+        } else if (*is_active) {
+            if (device_channel_rssi_read(&rssi) && *is_active)
                 device_channel_rssi_display(rssi);
         }
     }
