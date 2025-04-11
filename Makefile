@@ -7,13 +7,13 @@ HOSTNAME = $(shell hostname)
 
 ##
 
-$(TARGET): $(TARGET).c
+$(TARGET): $(TARGET).c serial.h e22900t22.h
 	$(CC) $(CFLAGS) -o $(TARGET) $(TARGET).c $(LDFLAGS)
 all: $(TARGET)
 clean:
 	rm -f $(TARGET)
 format:
-	clang-format -i $(TARGET).c
+	clang-format -i *.c *.h
 test: $(TARGET)
 	./$(TARGET) $(TARGET).cfg-$(HOSTNAME)
 .PHONY: all clean format test lint
