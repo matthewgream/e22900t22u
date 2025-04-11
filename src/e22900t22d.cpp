@@ -114,11 +114,6 @@ int serial_read (unsigned char *buffer, const int length, const int timeout_ms) 
     return serial_hw.readBytes (buffer, length);
 }
 
-int serial_read_tosize (unsigned char *buffer, const int length, const int timeout_ms) {
-    // yuck, ignoring timeout_ms
-    return serial_hw.readBytes (buffer, length);
-}
-
 // -----------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------
 

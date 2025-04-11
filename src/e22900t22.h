@@ -121,7 +121,7 @@ bool device_packet_write(const unsigned char *packet, const int length) {
 }
 
 bool device_packet_read(unsigned char *packet, const int max_size, int *packet_size, unsigned char *rssi) {
-    *packet_size = serial_read_tosize(packet, max_size, config.read_timeout_packet);
+    *packet_size = serial_read(packet, max_size, config.read_timeout_packet);
     if (*packet_size <= 0)
         return false;
     if (config.rssi_packet && *packet_size > 0)
@@ -368,7 +368,7 @@ bool device_module_config_read(unsigned char *config) {
 
 bool device_module_config_write(const unsigned char *config) {
     unsigned char cmd[DEVICE_CMD_HEADER_SIZE + DEVICE_MODULE_CONF_SIZE_WRITE] = {0xC0, 0x00,
-                                                                                   DEVICE_MODULE_CONF_SIZE_WRITE};
+                                                                                 DEVICE_MODULE_CONF_SIZE_WRITE};
     memcpy(cmd + DEVICE_CMD_HEADER_SIZE, config, DEVICE_MODULE_CONF_SIZE_WRITE);
     unsigned char result[DEVICE_MODULE_CONF_SIZE_WRITE];
     if (!device_cmd_send_wrapper("write_module_config", cmd, sizeof(cmd), result, DEVICE_MODULE_CONF_SIZE_WRITE))
@@ -435,7 +435,7 @@ void device_module_config_display(const unsigned char *config_device) {
 void __update_config_bool(const char *name, unsigned char *byte, const unsigned char bits, const bool setting) {
     const bool value = (bool)(*byte & bits);
     if (value != setting) {
-        PRINTF_INFO("device: update_configuration: %s: %s --> %s\n", name, get_enabled (value), get_enabled (setting));
+        PRINTF_INFO("device: update_configuration: %s: %s --> %s\n", name, get_enabled(value), get_enabled(setting));
         if (setting)
             *byte |= bits;
         else
