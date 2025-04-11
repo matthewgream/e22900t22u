@@ -45,13 +45,13 @@ int serial_fd = -1;
 bool serial_connect(const serial_config_t *config) {
     serial_fd = open(config->port, O_RDWR | O_NOCTTY);
     if (serial_fd < 0) {
-        fprintf(stderr, "serial: error opening port: %s\n", strerror(errno));
+        PRINTF_ERROR("serial: error opening port: %s\n", strerror(errno));
         return false;
     }
     struct termios tty;
     memset(&tty, 0, sizeof(tty));
     if (tcgetattr(serial_fd, &tty) != 0) {
-        fprintf(stderr, "serial: error getting port attributes: %s\n", strerror(errno));
+        PRINTF_ERROR("serial: error getting port attributes: %s\n", strerror(errno));
         close(serial_fd);
         serial_fd = -1;
         return false;
@@ -83,7 +83,7 @@ bool serial_connect(const serial_config_t *config) {
         baud = B115200;
         break;
     default:
-        fprintf(stderr, "serial: unsupported baud rate: %d\n", config->rate);
+        PRINTF_ERROR("serial: unsupported baud rate: %d\n", config->rate);
         close(serial_fd);
         serial_fd = -1;
         return false;
@@ -91,7 +91,7 @@ bool serial_connect(const serial_config_t *config) {
     cfsetispeed(&tty, baud);
     cfsetospeed(&tty, baud);
     if (config->bits != SERIAL_8N1) {
-        fprintf(stderr, "serial: unsupported bits: %s\n", serial_bits_str(config->bits));
+        PRINTF_ERROR("serial: unsupported bits: %s\n", serial_bits_str(config->bits));
         close(serial_fd);
         serial_fd = -1;
         return false;
@@ -109,7 +109,7 @@ bool serial_connect(const serial_config_t *config) {
     tty.c_cc[VMIN] = 0;
     tty.c_cc[VTIME] = 10;
     if (tcsetattr(serial_fd, TCSANOW, &tty) != 0) {
-        fprintf(stderr, "serial: error setting port attributes: %s\n", strerror(errno));
+        PRINTF_ERROR("serial: error setting port attributes: %s\n", strerror(errno));
         close(serial_fd);
         serial_fd = -1;
         return false;
@@ -181,7 +181,7 @@ int serial_read_tosize(unsigned char *buffer, const int length, const int timeou
         buffer[bytes_read++] = byte;
     }
     if (!buffer_complete && bytes_read >= length) {
-        fprintf(stderr, "device: buffer_read: buffer too large (max %d bytes)\n", length);
+        PRINTF_ERROR("device: buffer_read: buffer too large (max %d bytes)\n", length);
         return -1;
     }
     return bytes_read;
