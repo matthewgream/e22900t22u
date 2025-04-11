@@ -37,7 +37,7 @@ typedef struct {
     bool rssi_packet, rssi_channel;
     unsigned long read_timeout_command, read_timeout_packet;
 #ifdef E22900T22_SUPPORT_MODULE_DIP
-    void (*set_pin_mx)(bool pin_m0, bool pin_m1);
+    void (*set_pin_mx)(const bool pin_m0, const bool pin_m1);
     bool (*get_pin_aux)(void);
 #endif
     bool debug;
@@ -358,22 +358,22 @@ void device_product_info_display(const unsigned char *info) {
 
 // XXX it would be better to define a packed struct for the config rather than rely on offsets and bit manipulation
 
-#define DEVICE_MODULE_CONFIG_SIZE 9
-#define DEVICE_MODULE_CONFIG_SIZE_WRITE 7
+#define DEVICE_MODULE_CONF_SIZE 9
+#define DEVICE_MODULE_CONF_SIZE_WRITE 7
 
 bool device_module_config_read(unsigned char *config) {
-    static const unsigned char cmd[] = {0xC1, 0x00, DEVICE_MODULE_CONFIG_SIZE};
-    return device_cmd_send_wrapper("read_module_config", cmd, sizeof(cmd), config, DEVICE_MODULE_CONFIG_SIZE);
+    static const unsigned char cmd[] = {0xC1, 0x00, DEVICE_MODULE_CONF_SIZE};
+    return device_cmd_send_wrapper("read_module_config", cmd, sizeof(cmd), config, DEVICE_MODULE_CONF_SIZE);
 }
 
 bool device_module_config_write(const unsigned char *config) {
-    unsigned char cmd[DEVICE_CMD_HEADER_SIZE + DEVICE_MODULE_CONFIG_SIZE_WRITE] = {0xC0, 0x00,
-                                                                                   DEVICE_MODULE_CONFIG_SIZE_WRITE};
-    memcpy(cmd + DEVICE_CMD_HEADER_SIZE, config, DEVICE_MODULE_CONFIG_SIZE_WRITE);
-    unsigned char result[DEVICE_MODULE_CONFIG_SIZE_WRITE];
-    if (!device_cmd_send_wrapper("write_module_config", cmd, sizeof(cmd), result, DEVICE_MODULE_CONFIG_SIZE_WRITE))
+    unsigned char cmd[DEVICE_CMD_HEADER_SIZE + DEVICE_MODULE_CONF_SIZE_WRITE] = {0xC0, 0x00,
+                                                                                   DEVICE_MODULE_CONF_SIZE_WRITE};
+    memcpy(cmd + DEVICE_CMD_HEADER_SIZE, config, DEVICE_MODULE_CONF_SIZE_WRITE);
+    unsigned char result[DEVICE_MODULE_CONF_SIZE_WRITE];
+    if (!device_cmd_send_wrapper("write_module_config", cmd, sizeof(cmd), result, DEVICE_MODULE_CONF_SIZE_WRITE))
         return false;
-    for (int i = 0; i < DEVICE_MODULE_CONFIG_SIZE_WRITE; i++) {
+    for (int i = 0; i < DEVICE_MODULE_CONF_SIZE_WRITE; i++) {
         if (result[i] != config[i]) {
             PRINTF_ERROR("device: write_modify_config: verification failed at %d: %02X != %02X\n", i, result[i],
                          config[i]);
@@ -414,7 +414,7 @@ void device_module_config_display(const unsigned char *config_device) {
 #ifdef E22900T22_SUPPORT_MODULE_DIP
     if (module == E22900T22_MODULE_DIP) {
         PRINTF_INFO("mode-wor-enable=%s, ", get_enabled(reg3 & 0x08));
-        PRINTF_INFO("mode-wor-cycle=%d, ", get_wor_cycle(reg3));
+        PRINTF_INFO("mode-wor-cycle=%s, ", get_wor_cycle(reg3));
     }
 #endif
 
@@ -435,8 +435,7 @@ void device_module_config_display(const unsigned char *config_device) {
 void __update_config_bool(const char *name, unsigned char *byte, const unsigned char bits, const bool setting) {
     const bool value = (bool)(*byte & bits);
     if (value != setting) {
-        PRINTF_INFO("device: update_configuration: %s: %s --> %s\n", name, value ? "on" : "off",
-                    setting ? "on" : "off");
+        PRINTF_INFO("device: update_configuration: %s: %s --> %s\n", name, get_enabled (value), get_enabled (setting));
         if (setting)
             *byte |= bits;
         else
@@ -446,8 +445,8 @@ void __update_config_bool(const char *name, unsigned char *byte, const unsigned 
 
 bool update_configuration(unsigned char *config_device) {
 
-    unsigned char config_device_orig[DEVICE_MODULE_CONFIG_SIZE_WRITE];
-    memcpy(config_device_orig, config_device, DEVICE_MODULE_CONFIG_SIZE_WRITE);
+    unsigned char config_device_orig[DEVICE_MODULE_CONF_SIZE_WRITE];
+    memcpy(config_device_orig, config_device, DEVICE_MODULE_CONF_SIZE_WRITE);
 
     const unsigned short address = config_device[0] << 8 | config_device[1];
     if (address != config.address) {
@@ -475,7 +474,7 @@ bool update_configuration(unsigned char *config_device) {
         __update_config_bool("switch-config-serial", &config_device[4], 0x04, true);
 #endif
 
-    const bool update_required = memcmp(config_device_orig, config_device, DEVICE_MODULE_CONFIG_SIZE_WRITE) != 0;
+    const bool update_required = memcmp(config_device_orig, config_device, DEVICE_MODULE_CONF_SIZE_WRITE) != 0;
 
     return update_required;
 }
@@ -491,6 +490,8 @@ bool device_config(const e22900t22_config_t *config_device) {
         config.read_timeout_packet = CONFIG_READ_TIMEOUT_PACKET_DEFAULT;
     if (!config.packet_maxsize)
         config.packet_maxsize = CONFIG_PACKET_MAXSIZE_DEFAULT;
+    else if (config.packet_maxsize > E22900T22_PACKET_MAXSIZE)
+        return false;
 #ifdef E22900T22_SUPPORT_MODULE_DIP
     if (module == E22900T22_MODULE_DIP && (config.set_pin_mx == NULL || config.get_pin_aux == NULL))
         return false;
@@ -539,7 +540,7 @@ bool device_info_display() {
 
 bool device_config_read_and_update() {
 
-    unsigned char config[DEVICE_MODULE_CONFIG_SIZE];
+    unsigned char config[DEVICE_MODULE_CONF_SIZE];
 
     if (!device_module_config_read(config)) {
         PRINTF_ERROR("device: failed to read module configuration\n");
@@ -557,7 +558,7 @@ bool device_config_read_and_update() {
         }
 
         PRINTF_DEBUG("device: verify module configuration\n");
-        unsigned char config_2[DEVICE_MODULE_CONFIG_SIZE_WRITE];
+        unsigned char config_2[DEVICE_MODULE_CONF_SIZE_WRITE];
         if (!device_module_config_read(config_2) || memcmp(config, config_2, sizeof(config_2)) != 0) {
             PRINTF_ERROR("device: failed to verify module configuration\n");
             return false;

@@ -135,7 +135,7 @@ void e22900t22d_cfg_pin () {
     pinMode (PIN_E22900T22D_TXD, INPUT);
     pinMode (PIN_E22900T22D_AUX, INPUT_PULLUP);
 }
-void e22900t22d_set_pin_mx (bool pin_m0, bool pin_m1) {
+void e22900t22d_set_pin_mx (const bool pin_m0, const bool pin_m1) {
     digitalWrite (PIN_E22900T22D_M0, pin_m0 ? HIGH : LOW);
     digitalWrite (PIN_E22900T22D_M1, pin_m1 ? HIGH : LOW);
 }
