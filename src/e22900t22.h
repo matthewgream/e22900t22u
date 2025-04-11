@@ -14,17 +14,20 @@
 #error "no E22900T22_SUPPORT_MODULE_DIP or E22900T22_SUPPORT_MODULE_USB defined"
 #endif
 
+#define E22900T22_PACKET_MAXSIZE 240
+
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
 #define CONFIG_ADDRESS_DEFAULT 0x0000
 #define CONFIG_NETWORK_DEFAULT 0x00
-#define CONFIG_CHANNEL_DEFAULT 0x00 // Channel 0 (868.125 + 0 = 868.125 MHz)
+#define CONFIG_CHANNEL_DEFAULT 0x00 // Channel 0 (850.125 + 0 = 850.125 MHz)
 #define CONFIG_LISTEN_BEFORE_TRANSMIT true
 #define CONFIG_RSSI_PACKET_DEFAULT true
 #define CONFIG_RSSI_CHANNEL_DEFAULT true
 #define CONFIG_READ_TIMEOUT_COMMAND_DEFAULT 1000
 #define CONFIG_READ_TIMEOUT_PACKET_DEFAULT 5000
+#define CONFIG_PACKET_MAXSIZE_DEFAULT E22900T22_PACKET_MAXSIZE
 
 typedef enum { E22900T22_MODULE_USB = 0, E22900T22_MODULE_DIP = 1 } e22900t22_module_t;
 
@@ -32,6 +35,7 @@ typedef struct {
     unsigned short address;
     unsigned char network;
     unsigned char channel;
+    unsigned char packet_maxsize;
     bool listen_before_transmit;
     bool rssi_packet, rssi_channel;
     unsigned long read_timeout_command, read_timeout_packet;
@@ -44,8 +48,6 @@ typedef struct {
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
-
-#define COMMAND_DELAY_MS 300
 
 e22900t22_module_t module;
 e22900t22_config_t config;
@@ -90,7 +92,7 @@ void __hexdump(const unsigned char *data, const int size) {
     }
 }
 
-void __sleep_us(const unsigned long us) { usleep(us); }
+extern void __sleep_ms (const unsigned long ms);
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
@@ -98,13 +100,15 @@ void __sleep_us(const unsigned long us) { usleep(us); }
 bool device_wait_ready() {
 #ifdef E22900T22_SUPPORT_MODULE_DIP
     if (module == E22900T22_MODULE_DIP) {
-        static const unsigned long timeout_it = 500, timeout_us = 30 * 1000 * 1000;
+        static const unsigned long timeout_it = 1, timeout_ms = 30 * 1000;
         unsigned long timeout_counter = 0;
         while (!config.get_pin_aux()) {
-            if ((timeout_counter += timeout_it) > timeout_us)
+            if ((timeout_counter += timeout_it) > timeout_ms)
                 return false;
-            __sleep_us(timeout_it);
+            __sleep_ms(timeout_it);
         }
+        if (timeout_counter > 0)
+            __sleep_ms (50);
     }
 #endif
     return true;
@@ -112,6 +116,12 @@ bool device_wait_ready() {
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
+
+bool device_packet_write(const unsigned char *packet, const int length) {
+    if (length <= 0 || length > config.packet_maxsize)
+        return false;
+    return serial_write(packet, length) == length;
+}
 
 bool device_packet_read(unsigned char *packet, const int max_size, int *packet_size, unsigned char *rssi) {
     *packet_size = serial_read_tosize(packet, max_size, config.read_timeout_packet);
@@ -138,8 +148,6 @@ void device_packet_display(const unsigned char *packet, const int packet_size, c
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
 bool device_cmd_send(const unsigned char *cmd, const int cmd_len) {
-
-    __sleep_us(COMMAND_DELAY_MS * 1000);
 
     if (config.debug) {
         PRINTF_DEBUG("command: send: (%d bytes): ", cmd_len);
@@ -182,10 +190,7 @@ bool device_cmd_send_wrapper(const char *name, const unsigned char *command, con
         return false;
     if (response_length < command[DEVICE_CMD_HEADER_LENGTH_OFFSET])
         return false;
-    if (!device_wait_ready()) {
-        PRINTF_ERROR("device: %s: wait_ready timeout\n", name);
-        return false;
-    }
+
     if (!device_cmd_send(command, command_length)) {
         PRINTF_ERROR("device: %s: failed to send command\n", name);
         return false;
@@ -218,10 +223,6 @@ bool device_channel_rssi_read(unsigned char *rssi_value) {
     static const int command_length = sizeof(command);
 
     serial_flush();
-    if (!device_wait_ready()) {
-        PRINTF_ERROR("device: %s: wait_ready timeout\n", name);
-        return false;
-    }
     if (serial_write(command, command_length) != command_length) {
         PRINTF_ERROR("device: %s: failed to send command\n", name);
         return false;
@@ -311,7 +312,6 @@ bool device_mode_switch_impl_hardware(const device_mode_t mode) {
         config.set_pin_mx(false, true);
     else
         config.set_pin_mx(false, false);
-    __sleep_us(500);
     if (!device_wait_ready()) {
         PRINTF_ERROR("device: %s: wait_ready timeout (post switch)\n", name);
         return false;
@@ -352,9 +352,11 @@ bool device_product_info_read(unsigned char *result) {
 
 void device_product_info_display(const unsigned char *info) {
     PRINTF_DEBUG("device: product_info: ");
+    PRINTF_DEBUG("model=%d, version=%d, features=%02X", info [3], info [4], info [5]);
+    PRINTF_DEBUG(" [");
     for (int i = 0; i < DEVICE_PRODUCT_INFO_SIZE; i++)
-        PRINTF_DEBUG("%02X ", info[i]);
-    PRINTF_DEBUG("\n");
+        PRINTF_DEBUG("%s%02X", (i == 0? "": " "), info[i]);
+    PRINTF_DEBUG("]\n");
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
@@ -493,6 +495,8 @@ bool device_config(const e22900t22_config_t *config_device) {
         config.read_timeout_command = CONFIG_READ_TIMEOUT_COMMAND_DEFAULT;
     if (!config.read_timeout_packet)
         config.read_timeout_packet = CONFIG_READ_TIMEOUT_PACKET_DEFAULT;
+    if (!config.packet_maxsize)
+        config.packet_maxsize = CONFIG_PACKET_MAXSIZE_DEFAULT;
 #ifdef E22900T22_SUPPORT_MODULE_DIP
     if (module == E22900T22_MODULE_DIP && (config.set_pin_mx == NULL || config.get_pin_aux == NULL))
         return false;
@@ -500,8 +504,7 @@ bool device_config(const e22900t22_config_t *config_device) {
     return true;
 }
 
-bool device_connect(const e22900t22_module_t config_module, const e22900t22_config_t *config_device,
-                    const serial_config_t *config_serial) {
+bool device_connect(const e22900t22_module_t config_module, const e22900t22_config_t *config_device) {
 
 #ifndef E22900T22_SUPPORT_MODULE_USB
     if (config_module == E22900T22_MODULE_USB) {
@@ -521,15 +524,6 @@ bool device_connect(const e22900t22_module_t config_module, const e22900t22_conf
         PRINTF_ERROR("device: failed to set config\n");
         return false;
     }
-
-    if (!serial_connect(config_serial)) {
-        PRINTF_ERROR("device: failed to connect (port=%s, rate=%d, bits=%s)\n", config_serial->port,
-                     config_serial->rate, serial_bits_str(config_serial->bits));
-        return false;
-    }
-
-    PRINTF_DEBUG("device: connected (port=%s, rate=%d, bits=%s)\n", config_serial->port, config_serial->rate,
-                 serial_bits_str(config_serial->bits));
 
     return true;
 }
@@ -586,7 +580,7 @@ void device_packet_read_and_display(volatile bool *is_active) {
 
     PRINTF_DEBUG("device: packet read and display (with periodic channel_rssi)\n");
 
-    static const int max_packet_size = 256;
+    static const int max_packet_size = config.packet_maxsize + 1; // RSSI
     unsigned char packet_buffer[max_packet_size];
     int packet_size;
     unsigned char rssi;

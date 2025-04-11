@@ -23,17 +23,17 @@
 #include <stdlib.h>
 #include <string.h>
 
-void printf_debug(const char *format, ...) {
+void printf_debug (const char *format, ...) {
     va_list args;
-    va_start(args, format);
-    vfprintf(stdout, format, args);
-    va_end(args);
+    va_start (args, format);
+    vfprintf (stdout, format, args);
+    va_end (args);
 }
-void printf_error(const char *format, ...) {
+void printf_error (const char *format, ...) {
     va_list args;
-    va_start(args, format);
-    vfprintf(stderr, format, args);
-    va_end(args);
+    va_start (args, format);
+    vfprintf (stderr, format, args);
+    va_end (args);
 }
 
 #define PRINTF_DEBUG printf_debug
@@ -45,7 +45,7 @@ void printf_error(const char *format, ...) {
 #include "serial.h"
 #undef E22900T22_SUPPORT_MODULE_DIP
 #define E22900T22_SUPPORT_MODULE_USB
-#include "e22900t22.h"
+#include "src/e22900t22.h"
 
 serial_config_t serial_config = {
     .port = "/dev/e22900t22u",
@@ -56,10 +56,13 @@ serial_config_t serial_config = {
 e22900t22_config_t e22900t22u_config = {
     .address = 0x0008,
     .network = 0x00,
-    .channel = 0x17, // Channel 23 (868.125 + 23 = 891.125 MHz)
+    .channel = 0x17,    // Channel 23 (850.125 + 23 = 873.125 MHz)
+    .packet_maxsize = CONFIG_PACKET_MAXSIZE_DEFAULT,
     .listen_before_transmit = false,
     .rssi_packet = true,
     .rssi_channel = true,
+    .read_timeout_command = CONFIG_READ_TIMEOUT_COMMAND_DEFAULT,
+    .read_timeout_packet = CONFIG_READ_TIMEOUT_PACKET_DEFAULT,    
     .debug = false,
 };
 
@@ -68,26 +71,33 @@ e22900t22_config_t e22900t22u_config = {
 
 volatile bool is_active = true;
 
-void signal_handler(int sig __attribute__((unused))) {
+void signal_handler (int sig __attribute__ ((unused))) {
     if (is_active) {
-        PRINTF_DEBUG("e22900t22u: stopping\n");
+        PRINTF_DEBUG ("e22900t22u: stopping\n");
         is_active = false;
     }
 }
 
-int main(int argc __attribute__((unused)), char *argv[] __attribute__((unused))) {
-    // setbuf(stdout, NULL);
-    PRINTF_DEBUG("e22900t22u: starting\n");
-    signal(SIGINT, signal_handler);
-    signal(SIGTERM, signal_handler);
-    if (!device_connect(E22900T22_MODULE_USB, &e22900t22u_config, &serial_config))
+int main (int argc __attribute__ ((unused)), char *argv [] __attribute__ ((unused))) {
+    setbuf(stdout, NULL);
+    PRINTF_DEBUG ("e22900t22u: starting\n");
+    signal (SIGINT, signal_handler);
+    signal (SIGTERM, signal_handler);
+
+    if (! serial_connect (&serial_config)) {
+        PRINTF_ERROR ("device: failed to connect (port=%s, rate=%d, bits=%s)\n", serial_config.port, serial_config.rate, serial_bits_str (serial_config.bits));
+        return false;
+    }
+
+    if (! device_connect (E22900T22_MODULE_USB, &e22900t22u_config))
         return EXIT_FAILURE;
-    if (device_mode_config() && device_info_display() && device_config_read_and_update() && device_mode_transfer()) {
-        device_packet_read_and_display(&is_active);
-        device_disconnect();
+    PRINTF_DEBUG ("device: connected (port=%s, rate=%d, bits=%s)\n", serial_config.port, serial_config.rate, serial_bits_str (serial_config.bits));
+    if (device_mode_config () && device_info_display () && device_config_read_and_update () && device_mode_transfer ()) {
+        device_packet_read_and_display (&is_active);
+        device_disconnect ();
         return EXIT_SUCCESS;
     }
-    device_disconnect();
+    device_disconnect ();
     return EXIT_FAILURE;
 }
 
