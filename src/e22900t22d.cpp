@@ -156,6 +156,10 @@ e22900t22_config_t e22900t22u_config = {
 // -----------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------
 
+void halt () {
+    while (1) delay (100);
+}
+
 void setup () {
     Serial.begin (115200);
     delay (5 * 1000);
@@ -166,11 +170,11 @@ void setup () {
 
     if (! device_connect (E22900T22_MODULE_DIP, &e22900t22u_config)) {
         PRINTF_ERROR ("setup: device_connect failed\n");
-        return;
+        halt ();
     }
     if (! (device_mode_config () && device_info_display () && device_config_read_and_update () && device_mode_transfer ())) {
         PRINTF_ERROR ("setup: device_mode/info/config failed\n");
-        return;
+        halt ();
     }
 }
 
