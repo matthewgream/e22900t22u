@@ -148,14 +148,14 @@ e22900t22_config_t e22900t22u_config = {
     .network = 0x00,
     .channel = 0x17,    // Channel 23 (850.125 + 23 = 873.125 MHz)
     .packet_maxsize = CONFIG_PACKET_MAXSIZE_DEFAULT,
-    .listen_before_transmit = false,
+    .listen_before_transmit = true,
     .rssi_packet = true,
     .rssi_channel = true,
     .read_timeout_command = CONFIG_READ_TIMEOUT_COMMAND_DEFAULT,
     .read_timeout_packet = CONFIG_READ_TIMEOUT_PACKET_DEFAULT,
     .set_pin_mx = e22900t22d_set_pin_mx,
     .get_pin_aux = e22900t22d_get_pin_aux,
-    .debug = true,
+    .debug = false,
 };
 
 // -----------------------------------------------------------------------------------------------
