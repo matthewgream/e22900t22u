@@ -4,8 +4,8 @@
 
 #include <ctype.h>
 #include <stdbool.h>
-//#include <stdlib.h>
-//#include <string.h>
+#include <stdlib.h>
+#include <string.h>
 
 #if !defined(E22900T22_SUPPORT_MODULE_DIP) && !defined(E22900T22_SUPPORT_MODULE_USB)
 #error "no E22900T22_SUPPORT_MODULE_DIP or E22900T22_SUPPORT_MODULE_USB defined"
