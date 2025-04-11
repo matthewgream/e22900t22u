@@ -134,12 +134,14 @@ void serial_flush(void) {
 int serial_write(const unsigned char *buffer, const int length) {
     if (serial_fd < 0)
         return -1;
+    usleep(50 * 1000); // yuck
     return (int)write(serial_fd, buffer, length);
 }
 
 int serial_read(unsigned char *buffer, const int length, const int timeout_ms) {
     if (serial_fd < 0)
         return -1;
+    usleep(50 * 1000); // yuck
     fd_set rdset;
     struct timeval tv;
     FD_ZERO(&rdset);

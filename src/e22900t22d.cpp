@@ -90,7 +90,7 @@ HardwareSerial serial_hw (serialId);
 bool serial_connect (void) {
     serial_hw.setRxBufferSize (512);
     serial_hw.setTxBufferSize (512);
-    serial_hw.setTimeout (500);
+    serial_hw.setTimeout (500); // yuck, sahould be related to values in driver
     serial_hw.begin (9600, SERIAL_8N1, PIN_E22900T22D_TXD, PIN_E22900T22D_RXD, false);
     return true;
 }
@@ -104,15 +104,17 @@ void serial_flush (void) {
 }
 
 int serial_write (const unsigned char *buffer, const int length) {
-    __sleep_ms (50);
+    __sleep_ms (50); // yuck
     return serial_hw.write (buffer, length);
 }
 
 int serial_read (unsigned char *buffer, const int length, const int timeout_ms) {
+    // yuck, ignoring timeout_ms
     return serial_hw.readBytes (buffer, length);
 }
 
 int serial_read_tosize (unsigned char *buffer, const int length, const int timeout_ms) {
+    // yuck, ignoring timeout_ms
     return serial_hw.readBytes (buffer, length);
 }
 

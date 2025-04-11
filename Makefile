@@ -7,15 +7,20 @@ HOSTNAME = $(shell hostname)
 
 ##
 
-$(TARGET): $(TARGET).c serial.h e22900t22.h
+all: $(TARGET) $(TARGET)tomqtt
+
+$(TARGET): $(TARGET).c serial.h src/e22900t22.h
 	$(CC) $(CFLAGS) -o $(TARGET) $(TARGET).c $(LDFLAGS)
-all: $(TARGET)
+$(TARGET)tomqtt: $(TARGET)tomqtt.c serial.h src/e22900t22.h
+	$(CC) $(CFLAGS) -o $(TARGET)tomqtt $(TARGET)tomqtt.c $(LDFLAGS) -lmosquitto
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGET) $(TARGET)tomqtt
 format:
 	clang-format -i *.c *.h
 test: $(TARGET)
 	./$(TARGET) $(TARGET).cfg-$(HOSTNAME)
+testmqtt: $(TARGET)tomqtt
+	./$(TARGET)tomqtt $(TARGET)tomqtt.cfg-$(HOSTNAME)
 .PHONY: all clean format test lint
 
 ##
@@ -30,7 +35,7 @@ define install_systemd_service
 	systemctl enable $(1)
 	systemctl start $(1) || echo "Warning: Failed to start $(1)"
 endef
-install_syystemd_service: $(TARGET).service
+install_systemd_service: $(TARGET).service
 	$(call install_systemd_service,$(TARGET),$(TARGET))
 install_udev_rules: 90-$(TARGET).rules
 	cp 90-$(TARGET).rules $(UDEVRULES_DIR)

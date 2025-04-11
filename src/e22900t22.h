@@ -65,30 +65,30 @@ float get_frequency(const unsigned char channel);
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-void __hexdump(const unsigned char *data, const int size) {
+void __hexdump(const unsigned char *data, const int size, const char* prefix) {
 
     static const int bytes_per_line = 16;
 
     for (int offset = 0; offset < size; offset += bytes_per_line) {
-        PRINTF_DEBUG("%04x: ", offset);
+        PRINTF_INFO("%s%04x: ", prefix, offset);
         for (int i = 0; i < bytes_per_line; i++) {
             if (i == bytes_per_line / 2)
-                PRINTF_DEBUG(" ");
+                PRINTF_INFO(" ");
             if (offset + i < size)
-                PRINTF_DEBUG("%02x ", data[offset + i]);
+                PRINTF_INFO("%02x ", data[offset + i]);
             else
-                PRINTF_DEBUG("   ");
+                PRINTF_INFO("   ");
         }
-        PRINTF_DEBUG(" ");
+        PRINTF_INFO(" ");
         for (int i = 0; i < bytes_per_line; i++) {
             if (i == bytes_per_line / 2)
-                PRINTF_DEBUG(" ");
+                PRINTF_INFO(" ");
             if (offset + i < size)
-                PRINTF_DEBUG("%c", isprint(data[offset + i]) ? data[offset + i] : '.');
+                PRINTF_INFO("%c", isprint(data[offset + i]) ? data[offset + i] : '.');
             else
-                PRINTF_DEBUG(" ");
+                PRINTF_INFO(" ");
         }
-        PRINTF_DEBUG("\n");
+        PRINTF_INFO("\n");
     }
 }
 
@@ -135,13 +135,11 @@ bool device_packet_read(unsigned char *packet, const int max_size, int *packet_s
 }
 
 void device_packet_display(const unsigned char *packet, const int packet_size, const unsigned char rssi) {
-    PRINTF_DEBUG("---- PACKET --------------------------------\n");
-    PRINTF_DEBUG("size=%d bytes", packet_size);
+    PRINTF_INFO("device: packet: size=%d", packet_size);
     if (config.rssi_packet)
-        PRINTF_DEBUG(", rssi=%.2fdBm", -((float)rssi / 2.0));
-    PRINTF_DEBUG("\n");
-    __hexdump(packet, packet_size);
-    PRINTF_DEBUG("----\n");
+        PRINTF_INFO(", rssi=%.2f dBm", -((float)rssi / 2.0));
+    PRINTF_INFO("\n");
+    __hexdump(packet, packet_size, "    ");
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
@@ -230,7 +228,7 @@ bool device_channel_rssi_read(unsigned char *rssi_value) {
 
     unsigned char buffer[4];
     const int length = sizeof(buffer);
-    const int read_len = serial_read(buffer, length, 1000);
+    const int read_len = serial_read(buffer, length, config.read_timeout_command);
     if (read_len < length) {
         PRINTF_ERROR("device: %s: failed, received %d bytes, expected %d bytes\n", name, read_len, length);
         return false;
@@ -246,8 +244,7 @@ bool device_channel_rssi_read(unsigned char *rssi_value) {
 }
 
 void device_channel_rssi_display(unsigned char rssi_value) {
-    const int rssi_dbm = -((int)rssi_value) / 2;
-    PRINTF_DEBUG("device: rssi-channel: %d dBm\n", rssi_dbm);
+    PRINTF_INFO("device: rssi-channel: %d dBm\n", -((int)rssi_value) / 2);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
@@ -351,12 +348,12 @@ bool device_product_info_read(unsigned char *result) {
 }
 
 void device_product_info_display(const unsigned char *info) {
-    PRINTF_DEBUG("device: product_info: ");
-    PRINTF_DEBUG("model=%d, version=%d, features=%02X", info [3], info [4], info [5]);
-    PRINTF_DEBUG(" [");
+    PRINTF_INFO("device: product_info: ");
+    PRINTF_INFO("model=%d, version=%d, features=%02X", info [3], info [4], info [5]);
+    PRINTF_INFO(" [");
     for (int i = 0; i < DEVICE_PRODUCT_INFO_SIZE; i++)
-        PRINTF_DEBUG("%s%02X", (i == 0? "": " "), info[i]);
-    PRINTF_DEBUG("]\n");
+        PRINTF_INFO("%s%02X", (i == 0? "": " "), info[i]);
+    PRINTF_INFO("]\n");
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
@@ -399,40 +396,40 @@ void device_module_config_display(const unsigned char *config_device) {
     const unsigned char reg3 = config_device[6];                             // REG3 - Various options
     const unsigned short crypt = config_device[7] << 8 | config_device[8];   // CRYPT (not readable, will show as 0)
 
-    PRINTF_DEBUG("device: module_config: ");
+    PRINTF_INFO("device: module_config: ");
 
-    PRINTF_DEBUG("address=0x%04X, ", address);
-    PRINTF_DEBUG("network=0x%02X, ", network);
-    PRINTF_DEBUG("channel=%d (frequency=%.3fMHz), ", channel, get_frequency(channel));
+    PRINTF_INFO("address=0x%04X, ", address);
+    PRINTF_INFO("network=0x%02X, ", network);
+    PRINTF_INFO("channel=%d (frequency=%.3fMHz), ", channel, get_frequency(channel));
 
-    PRINTF_DEBUG("data-rate=%s, ", get_packet_rate(reg0));
-    PRINTF_DEBUG("packet-size=%s, ", get_packet_size(reg1));
-    PRINTF_DEBUG("transmit-power=%s, ", get_transmit_power(reg1));
-    PRINTF_DEBUG("encryption-key=0x%04X, ", crypt);
+    PRINTF_INFO("data-rate=%s, ", get_packet_rate(reg0));
+    PRINTF_INFO("packet-size=%s, ", get_packet_size(reg1));
+    PRINTF_INFO("transmit-power=%s, ", get_transmit_power(reg1));
+    PRINTF_INFO("encryption-key=0x%04X, ", crypt);
 
-    PRINTF_DEBUG("rssi-channel=%s, ", get_enabled(reg1 & 0x20));
-    PRINTF_DEBUG("rssi-packet=%s, ", get_enabled(reg3 & 0x80));
+    PRINTF_INFO("rssi-channel=%s, ", get_enabled(reg1 & 0x20));
+    PRINTF_INFO("rssi-packet=%s, ", get_enabled(reg3 & 0x80));
 
-    PRINTF_DEBUG("mode-listen-before-tx=%s, ", get_enabled(reg3 & 0x10));
-    PRINTF_DEBUG("mode-transmit=%s, ", get_mode_transmit(reg3));
-    PRINTF_DEBUG("mode-relay=%s, ", get_enabled(reg3 & 0x20));
+    PRINTF_INFO("mode-listen-before-tx=%s, ", get_enabled(reg3 & 0x10));
+    PRINTF_INFO("mode-transmit=%s, ", get_mode_transmit(reg3));
+    PRINTF_INFO("mode-relay=%s, ", get_enabled(reg3 & 0x20));
 
 #ifdef E22900T22_SUPPORT_MODULE_DIP
     if (module == E22900T22_MODULE_DIP) {
-        PRINTF_DEBUG("mode-wor-enable=%s, ", get_enabled(reg3 & 0x08));
-        PRINTF_DEBUG("mode-wor-cycle=%d, ", get_wor_cycle(reg3));
+        PRINTF_INFO("mode-wor-enable=%s, ", get_enabled(reg3 & 0x08));
+        PRINTF_INFO("mode-wor-cycle=%d, ", get_wor_cycle(reg3));
     }
 #endif
 
-    PRINTF_DEBUG("uart-rate=%s, ", get_uart_rate(reg0));
-    PRINTF_DEBUG("uart-parity=%s, ", get_uart_parity(reg0));
+    PRINTF_INFO("uart-rate=%s, ", get_uart_rate(reg0));
+    PRINTF_INFO("uart-parity=%s, ", get_uart_parity(reg0));
 
 #ifdef E22900T22_SUPPORT_MODULE_USB
     if (module == E22900T22_MODULE_USB)
-        PRINTF_DEBUG("switch-config-serial=%s, ", get_enabled(reg1 & 0x04));
+        PRINTF_INFO("switch-config-serial=%s, ", get_enabled(reg1 & 0x04));
 #endif
 
-    PRINTF_DEBUG("\n");
+    PRINTF_INFO("\n");
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
@@ -441,7 +438,7 @@ void device_module_config_display(const unsigned char *config_device) {
 void __update_config_bool(const char *name, unsigned char *byte, const unsigned char bits, const bool setting) {
     const bool value = (bool)(*byte & bits);
     if (value != setting) {
-        PRINTF_DEBUG("device: update_configuration: %s: %s --> %s\n", name, value ? "on" : "off",
+        PRINTF_INFO("device: update_configuration: %s: %s --> %s\n", name, value ? "on" : "off",
                      setting ? "on" : "off");
         if (setting)
             *byte |= bits;
@@ -457,18 +454,18 @@ bool update_configuration(unsigned char *config_device) {
 
     const unsigned short address = config_device[0] << 8 | config_device[1];
     if (address != config.address) {
-        PRINTF_DEBUG("device: update_configuration: address: 0x%04X --> 0x%04X\n", address, config.address);
+        PRINTF_INFO("device: update_configuration: address: 0x%04X --> 0x%04X\n", address, config.address);
         config_device[0] = (unsigned char)(config.address >> 8);
         config_device[1] = (unsigned char)(config.address & 0xFF);
     }
     const unsigned char network = config_device[2];
     if (network != config.network) {
-        PRINTF_DEBUG("device: update_configuration: network: 0x%02X --> 0x%02X\n", network, config.network);
+        PRINTF_INFO("device: update_configuration: network: 0x%02X --> 0x%02X\n", network, config.network);
         config_device[2] = config.network;
     }
     const unsigned char channel = config_device[5];
     if (channel != config.channel) {
-        PRINTF_DEBUG("device: update_configuration: channel: %d (%.3fMHz) --> %d (%.3fMHz)\n", channel,
+        PRINTF_INFO("device: update_configuration: channel: %d (%.3fMHz) --> %d (%.3fMHz)\n", channel,
                      get_frequency(channel), config.channel, get_frequency(config.channel));
         config_device[5] = config.channel;
     }
@@ -528,7 +525,6 @@ bool device_connect(const e22900t22_module_t config_module, const e22900t22_conf
     return true;
 }
 void device_disconnect() {
-    serial_disconnect();
     PRINTF_DEBUG("device: disconnected\n");
 }
 
@@ -580,13 +576,13 @@ void device_packet_read_and_display(volatile bool *is_active) {
 
     PRINTF_DEBUG("device: packet read and display (with periodic channel_rssi)\n");
 
-    static const int max_packet_size = config.packet_maxsize + 1; // RSSI
+    static const int max_packet_size = E22900T22_PACKET_MAXSIZE + 1; // RSSI
     unsigned char packet_buffer[max_packet_size];
     int packet_size;
     unsigned char rssi;
 
     while (*is_active) {
-        if (device_packet_read(packet_buffer, max_packet_size, &packet_size, &rssi) && *is_active) {
+        if (device_packet_read(packet_buffer, config.packet_maxsize + 1, &packet_size, &rssi) && *is_active) {
             device_packet_display(packet_buffer, packet_size, rssi);
         } else if (*is_active) {
             if (device_channel_rssi_read(&rssi) && *is_active)
