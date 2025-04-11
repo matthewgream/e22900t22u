@@ -16,7 +16,7 @@ $(TARGET)tomqtt: $(TARGET)tomqtt.c serial.h src/e22900t22.h
 clean:
 	rm -f $(TARGET) $(TARGET)tomqtt
 format:
-	clang-format -i *.[ch] src/*.[ch]
+	clang-format -i *.[ch] src/*.h src/*.cpp
 test: $(TARGET)
 	./$(TARGET) $(TARGET).cfg-$(HOSTNAME)
 testmqtt: $(TARGET)tomqtt
