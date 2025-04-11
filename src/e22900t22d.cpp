@@ -75,6 +75,7 @@ static inline constexpr gpio_num_t PIN_E22900T22D_TXD = GPIO_NUM_20;
 static inline constexpr gpio_num_t PIN_E22900T22D_AUX = GPIO_NUM_21;
 
 #define PRINTF_DEBUG Serial.printf
+#define PRINTF_INFO  Serial.printf
 #define PRINTF_ERROR Serial.printf
 
 void __sleep_ms (const unsigned long ms) { delay (ms); }
@@ -90,7 +91,7 @@ HardwareSerial serial_hw (serialId);
 bool serial_connect (void) {
     serial_hw.setRxBufferSize (512);
     serial_hw.setTxBufferSize (512);
-    serial_hw.setTimeout (500); // yuck, sahould be related to values in driver
+    serial_hw.setTimeout (500);    // yuck, should be related to values in driver
     serial_hw.begin (9600, SERIAL_8N1, PIN_E22900T22D_TXD, PIN_E22900T22D_RXD, false);
     return true;
 }
@@ -104,7 +105,7 @@ void serial_flush (void) {
 }
 
 int serial_write (const unsigned char *buffer, const int length) {
-    __sleep_ms (50); // yuck
+    __sleep_ms (50);    // yuck
     return serial_hw.write (buffer, length);
 }
 
@@ -187,7 +188,7 @@ void loop () {
     seconds.wait ();
 
     unsigned char rssi;
-    if (!device_channel_rssi_read (&rssi))
+    if (! device_channel_rssi_read (&rssi))
         PRINTF_ERROR ("loop: device_channel_rssi_read failed\n");
     else
         device_channel_rssi_display (rssi);
@@ -198,7 +199,8 @@ void loop () {
         String jsonStr;
         jsonDoc ["ping"]["counter"] = counter++;
         serializeJson (jsonDoc, jsonStr);
-        if (!device_packet_write ((const unsigned char *) jsonStr.c_str (), jsonStr.length ()))
+        PRINTF_INFO ("loop: device_packet_write <<<%s>>>\n", jsonStr.c_str ());
+        if (! device_packet_write ((const unsigned char *) jsonStr.c_str (), jsonStr.length ()))
             PRINTF_ERROR ("loop: device_packet_write failed\n");
     }
 }
