@@ -65,7 +65,7 @@ float get_frequency(const unsigned char channel);
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-void __hexdump(const unsigned char *data, const int size, const char* prefix) {
+void __hexdump(const unsigned char *data, const int size, const char *prefix) {
 
     static const int bytes_per_line = 16;
 
@@ -92,7 +92,7 @@ void __hexdump(const unsigned char *data, const int size, const char* prefix) {
     }
 }
 
-extern void __sleep_ms (const unsigned long ms);
+extern void __sleep_ms(const unsigned long ms);
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
@@ -108,7 +108,7 @@ bool device_wait_ready() {
             __sleep_ms(timeout_it);
         }
         if (timeout_counter > 0)
-            __sleep_ms (50);
+            __sleep_ms(50);
     }
 #endif
     return true;
@@ -349,10 +349,10 @@ bool device_product_info_read(unsigned char *result) {
 
 void device_product_info_display(const unsigned char *info) {
     PRINTF_INFO("device: product_info: ");
-    PRINTF_INFO("model=%d, version=%d, features=%02X", info [3], info [4], info [5]);
+    PRINTF_INFO("model=%d, version=%d, features=%02X", info[3], info[4], info[5]);
     PRINTF_INFO(" [");
     for (int i = 0; i < DEVICE_PRODUCT_INFO_SIZE; i++)
-        PRINTF_INFO("%s%02X", (i == 0? "": " "), info[i]);
+        PRINTF_INFO("%s%02X", (i == 0 ? "" : " "), info[i]);
     PRINTF_INFO("]\n");
 }
 
@@ -439,7 +439,7 @@ void __update_config_bool(const char *name, unsigned char *byte, const unsigned 
     const bool value = (bool)(*byte & bits);
     if (value != setting) {
         PRINTF_INFO("device: update_configuration: %s: %s --> %s\n", name, value ? "on" : "off",
-                     setting ? "on" : "off");
+                    setting ? "on" : "off");
         if (setting)
             *byte |= bits;
         else
@@ -466,7 +466,7 @@ bool update_configuration(unsigned char *config_device) {
     const unsigned char channel = config_device[5];
     if (channel != config.channel) {
         PRINTF_INFO("device: update_configuration: channel: %d (%.3fMHz) --> %d (%.3fMHz)\n", channel,
-                     get_frequency(channel), config.channel, get_frequency(config.channel));
+                    get_frequency(channel), config.channel, get_frequency(config.channel));
         config_device[5] = config.channel;
     }
 
@@ -524,9 +524,7 @@ bool device_connect(const e22900t22_module_t config_module, const e22900t22_conf
 
     return true;
 }
-void device_disconnect() {
-    PRINTF_DEBUG("device: disconnected\n");
-}
+void device_disconnect() { PRINTF_DEBUG("device: disconnected\n"); }
 
 bool device_info_display() {
 
