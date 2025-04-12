@@ -59,11 +59,11 @@ const char *get_uart_rate(const unsigned char value);
 const char *get_uart_parity(const unsigned char value);
 const char *get_packet_rate(const unsigned char value);
 const char *get_packet_size(const unsigned char value);
-const char *get_transmit_power(const e22900txx_device_t *device, const unsigned char value);
+const char *get_transmit_power(const unsigned char value);
 const char *get_mode_transmit(const unsigned char value);
 const char *get_wor_cycle(const unsigned char value);
 const char *get_enabled(const unsigned char value);
-float get_frequency(const e22900txx_device_t *device, const unsigned char channel);
+float get_frequency(const unsigned char channel);
 int get_rssi_dbm(const unsigned char rssi);
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
@@ -413,11 +413,11 @@ void device_module_config_display(const unsigned char *config_device) {
 
     PRINTF_INFO("address=0x%04X, ", address);
     PRINTF_INFO("network=0x%02X, ", network);
-    PRINTF_INFO("channel=%d (frequency=%.3fMHz), ", channel, get_frequency(&device, channel));
+    PRINTF_INFO("channel=%d (frequency=%.3fMHz), ", channel, get_frequency(channel));
 
     PRINTF_INFO("data-rate=%s, ", get_packet_rate(reg0));
     PRINTF_INFO("packet-size=%s, ", get_packet_size(reg1));
-    PRINTF_INFO("transmit-power=%s, ", get_transmit_power(&device, reg1));
+    PRINTF_INFO("transmit-power=%s, ", get_transmit_power(reg1));
     PRINTF_INFO("encryption-key=0x%04X, ", crypt);
 
     PRINTF_INFO("rssi-channel=%s, ", get_enabled(reg1 & 0x20));
@@ -478,7 +478,7 @@ bool update_configuration(unsigned char *config_device) {
     const unsigned char channel = config_device[5];
     if (channel != config.channel) {
         PRINTF_INFO("device: update_configuration: channel: %d (%.3fMHz) --> %d (%.3fMHz)\n", channel,
-                    get_frequency(&device, channel), config.channel, get_frequency(&device, config.channel));
+                    get_frequency(channel), config.channel, get_frequency(config.channel));
         config_device[5] = config.channel;
     }
 
@@ -701,9 +701,9 @@ const struct __transmit_power_reg {
     {33, {"33dBm (Default)", "30dBm", "27dBm", "24dBm"}}, // E22-900T33
 };
 
-const char *get_transmit_power(const e22900txx_device_t *device, const unsigned char value) {
+const char *get_transmit_power(const unsigned char value) {
     for (int i = 0; i < (int)(sizeof(__transmit_power_map) / sizeof(struct __transmit_power_reg)); i++)
-        if (device->maxpower == __transmit_power_map[i].power_max)
+        if (device.maxpower == __transmit_power_map[i].power_max)
             return __transmit_power_map[i].power_map[value & 0x03];
     return "unknown";
 }
@@ -744,8 +744,8 @@ const char *get_wor_cycle(const unsigned char value) {
 
 const char *get_enabled(const unsigned char value) { return value > 0 ? "on" : "off"; }
 
-float get_frequency(const e22900txx_device_t *device, const unsigned char channel) {
-    switch (device->frequency) {
+float get_frequency(const unsigned char channel) {
+    switch (device.frequency) {
     // case ??: return 220.125 + (channel * 0.25); // E22-230T*
     // case ??: return 410.125 + (channel * 1.0); // E22-400T*
     case 11:
