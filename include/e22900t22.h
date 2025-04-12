@@ -540,7 +540,7 @@ bool device_connect(const e22900t22_module_t config_module, const e22900t22_conf
 }
 void device_disconnect() { PRINTF_DEBUG("device: disconnected\n"); }
 
-bool device_info_display() {
+bool device_info_read () {
 
     unsigned char product_info[DEVICE_PRODUCT_INFO_SIZE];
 

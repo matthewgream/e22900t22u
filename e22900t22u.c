@@ -95,7 +95,7 @@ int main(int argc __attribute__((unused)), char *argv[] __attribute__((unused)))
     }
     printf("device: connected (port=%s, rate=%d, bits=%s)\n", serial_config.port, serial_config.rate,
            serial_bits_str(serial_config.bits));
-    if (!(device_mode_config() && device_info_display() && device_config_read_and_update() && device_mode_transfer())) {
+    if (!(device_mode_config() && device_info_read() && device_config_read_and_update() && device_mode_transfer())) {
         device_disconnect();
         serial_disconnect();
         return EXIT_FAILURE;

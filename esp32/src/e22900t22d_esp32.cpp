@@ -188,7 +188,7 @@ void setup() {
         PRINTF_ERROR("setup: device_connect failed\n");
         halt();
     }
-    if (!(device_mode_config() && device_info_display() && device_config_read_and_update() && device_mode_transfer())) {
+    if (!(device_mode_config() && device_info_read() && device_config_read_and_update() && device_mode_transfer())) {
         PRINTF_ERROR("setup: device_mode/info/config failed\n");
         halt();
     }
@@ -196,11 +196,11 @@ void setup() {
 
 // -----------------------------------------------------------------------------------------------
 
-Intervalable seconds(5 * 1000);
+Intervalable secs(5 * 1000);
 Intervalable ping(30 * 1000);
 
 void loop() {
-    seconds.wait();
+    secs.wait();
 
     unsigned char rssi;
     if (!device_channel_rssi_read(&rssi))
