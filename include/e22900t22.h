@@ -540,7 +540,7 @@ bool device_connect(const e22900t22_module_t config_module, const e22900t22_conf
 }
 void device_disconnect() { PRINTF_DEBUG("device: disconnected\n"); }
 
-bool device_info_read () {
+bool device_info_read() {
 
     unsigned char product_info[DEVICE_PRODUCT_INFO_SIZE];
 
@@ -654,19 +654,20 @@ const char *get_uart_parity(const unsigned char value) {
 }
 
 const struct __packet_rate_reg {
-    const char *rate_map [8];
+    const char *rate_map[8];
 } __packet_rate_map[] = {
-    {"2.4kbps", "2.4kbps", "2.4kbps (Default)", "4.8kbps", "9.6kbps", "19.2kbps", "38.4kbps", "62.5kbps"}, // E22-400Txx/900Txx
-    {"2.4kbps", "2.4kbps", "2.4kbps (Default)", "2.4kbps", "4.8kbps", "9.6kbps", "15.6kbps", "15.6kbps" } // E22-230Txx
+    {"2.4kbps", "2.4kbps", "2.4kbps (Default)", "4.8kbps", "9.6kbps", "19.2kbps", "38.4kbps", "62.5kbps"}, // E22-400/900Txx
+    {"2.4kbps", "2.4kbps", "2.4kbps (Default)", "2.4kbps", "4.8kbps", "9.6kbps", "15.6kbps", "15.6kbps"} // E22-230Txx
 };
 
 const char *get_packet_rate(const unsigned char value) {
     switch (device.frequency) {
-        // case ??: // E22-400Txx
-        case 11: return __packet_rate_map [0].rate_map [value & 0x07]; // E22-900Txx
-        // case ??: return __packet_rate_map [1].rate_map [value & 0x07]; // E22-230Txx
-        default:
-            return "unknown";
+    // case ??: return __packet_rate_map [1].rate_map [value & 0x07]; // E22-230Txx
+    // case ??: // E22-400Txx
+    case 11:
+        return __packet_rate_map[0].rate_map[value & 0x07]; // E22-900Txx
+    default:
+        return "unknown";
     }
 }
 
