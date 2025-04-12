@@ -8,3 +8,4 @@ Should work for entire family: 230, 400 and 900 frequency and 20, 22, 30 and 33 
 Further information at https://www.cdebyte.com/Module-SPISOCUART-SX12.
 
 Linux version has a command line tester and a 'tomqtt' version with udev and systemd configuration files.
+

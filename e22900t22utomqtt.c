@@ -17,8 +17,6 @@
 #include <string.h>
 #include <time.h>
 
-#include <mosquitto.h>
-
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
@@ -174,8 +172,11 @@ int interval_passed(int interval, time_t *last) {
     return 0;
 }
 
+#define EMA_ALPHA 0.2f
+
 void ema_update(unsigned char value, unsigned char *value_ema, unsigned long *value_cnt) {
-    *value_ema = (*value_cnt)++ == 0 ? value : (unsigned char)((0.2f * (float)value) + ((1 - 0.2f) * (*value_ema)));
+    *value_ema =
+        (*value_cnt)++ == 0 ? value : (unsigned char)((EMA_ALPHA * (float)value) + ((1.0f - EMA_ALPHA) * (*value_ema)));
 }
 
 void read_and_send(const char *mqtt_topic) {
