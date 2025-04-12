@@ -9,3 +9,4 @@ Further information at https://www.cdebyte.com/Module-SPISOCUART-SX12.
 
 Linux version has a command line tester and a 'tomqtt' version with udev and systemd configuration files.
 
+Greenfield implementation, not based upon any others. Please see LICENCE.
