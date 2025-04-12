@@ -359,12 +359,10 @@ bool device_product_info_read(unsigned char *result) {
 
 void device_product_info_display(const unsigned char *info) {
     PRINTF_INFO("device: product_info: ");
-    PRINTF_INFO("name=%04X, version=%d, maxpower=%d, frequency=%d, type=%d", 
+    PRINTF_INFO("name=%04X, version=%d, maxpower=%d, frequency=%d, type=%d",
                 info[DEVICE_PRODUCT_INFO_OFFSET_NAME_H] << 8 | info[DEVICE_PRODUCT_INFO_OFFSET_NAME_L],
-                info[DEVICE_PRODUCT_INFO_OFFSET_VERSION], 
-                info[DEVICE_PRODUCT_INFO_OFFSET_MAXPOWER],
-                info[DEVICE_PRODUCT_INFO_OFFSET_FREQUENCY],
-                info[DEVICE_PRODUCT_INFO_OFFSET_TYPE]);
+                info[DEVICE_PRODUCT_INFO_OFFSET_VERSION], info[DEVICE_PRODUCT_INFO_OFFSET_MAXPOWER],
+                info[DEVICE_PRODUCT_INFO_OFFSET_FREQUENCY], info[DEVICE_PRODUCT_INFO_OFFSET_TYPE]);
     PRINTF_INFO(" [");
     for (int i = 0; i < DEVICE_PRODUCT_INFO_SIZE; i++)
         PRINTF_INFO("%s%02X", (i == 0 ? "" : " "), info[i]);
@@ -553,7 +551,8 @@ bool device_info_display() {
 
     device_product_info_display(product_info);
 
-    device.name = product_info[DEVICE_PRODUCT_INFO_OFFSET_NAME_H] << 8 | product_info[DEVICE_PRODUCT_INFO_OFFSET_NAME_L];
+    device.name =
+        product_info[DEVICE_PRODUCT_INFO_OFFSET_NAME_H] << 8 | product_info[DEVICE_PRODUCT_INFO_OFFSET_NAME_L];
     device.version = product_info[DEVICE_PRODUCT_INFO_OFFSET_VERSION];
     device.maxpower = product_info[DEVICE_PRODUCT_INFO_OFFSET_MAXPOWER];
     device.frequency = product_info[DEVICE_PRODUCT_INFO_OFFSET_FREQUENCY];
