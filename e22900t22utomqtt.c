@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include <mosquitto.h>
 
@@ -22,9 +23,10 @@
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
 bool debug = false;
+bool debug_e22900t22u = false;
 
 void printf_debug(const char *format, ...) {
-    if (debug) {
+    if (debug_e22900t22u) {
         va_list args;
         va_start(args, format);
         vfprintf(stdout, format, args);
@@ -48,10 +50,10 @@ void printf_stderr(const char *format, ...) {
 #define PRINTF_ERROR printf_stderr
 #define PRINTF_INFO printf_stdout
 
-#include "serial.h"
+#include "include/serial_linux.h"
 #undef E22900T22_SUPPORT_MODULE_DIP
 #define E22900T22_SUPPORT_MODULE_USB
-#include "src/e22900t22.h"
+#include "include/e22900t22.h"
 void __sleep_ms(const unsigned long ms) { usleep(ms * 1000); }
 
 #define SERIAL_PORT_DEFAULT "/dev/e22900t22u"
@@ -63,122 +65,10 @@ void __sleep_ms(const unsigned long ms) { usleep(ms * 1000); }
 
 #define CONFIG_FILE_DEFAULT "e22900t22utomqtt.cfg"
 
-#define MQTT_SERVER_DEFAULT "mqtt://localhost"
-#define MQTT_TOPIC_DEFAULT "e22900t22u"
-
-#define MQTT_CONNECT_TIMEOUT 60
-#define MQTT_PUBLISH_QOS 0
-#define MQTT_PUBLISH_RETAIN false
-
-// -----------------------------------------------------------------------------------------------------------------------------------------
-// -----------------------------------------------------------------------------------------------------------------------------------------
-
-#include <ctype.h>
-#include <getopt.h>
-
-#define CONFIG_MAX_STRING 255
-
-typedef struct {
-    char *key;
-    char *value;
-} config_entry_t;
-
-#define CONFIG_MAX_ENTRIES 32
-config_entry_t config_entries[CONFIG_MAX_ENTRIES];
-int config_entry_count = 0;
-
-void __config_set_value(const char *key, const char *value) {
-    for (int i = 0; i < config_entry_count; i++)
-        if (strcmp(config_entries[i].key, key) == 0) {
-            free(config_entries[i].value);
-            config_entries[i].value = strdup(value);
-            return;
-        }
-    if (config_entry_count < CONFIG_MAX_ENTRIES) {
-        config_entries[config_entry_count].key = strdup(key);
-        config_entries[config_entry_count].value = strdup(value);
-        config_entry_count++;
-    } else
-        fprintf(stderr, "config: too many entries, ignoring %s=%s\n", key, value);
-}
-
-const char *config_get_string(const char *key, const char *default_value) {
-    for (int i = 0; i < config_entry_count; i++)
-        if (strcmp(config_entries[i].key, key) == 0)
-            return config_entries[i].value;
-    return default_value;
-}
-
-int config_get_integer(const char *key, const int default_value) {
-    for (int i = 0; i < config_entry_count; i++)
-        if (strcmp(config_entries[i].key, key) == 0) {
-            char *endptr;
-            const long val = strtol(config_entries[i].value, &endptr, 0);
-            if (*endptr == '\0')
-                return (int)val;
-            else {
-                fprintf(stderr, "config: invalid integer value '%s' for key '%s', using default\n",
-                        config_entries[i].value, key);
-                return default_value;
-            }
-        }
-    return default_value;
-}
-
-bool config_get_bool(const char *key, const bool default_value) {
-    for (int i = 0; i < config_entry_count; i++)
-        if (strcmp(config_entries[i].key, key) == 0) {
-            if (strcasecmp(config_entries[i].value, "true") == 0 || strcmp(config_entries[i].value, "1") == 0)
-                return true;
-            else if (strcasecmp(config_entries[i].value, "false") == 0 || strcmp(config_entries[i].value, "0") == 0)
-                return false;
-            fprintf(stderr, "config: invalid boolean value '%s' for key '%s', using default\n", config_entries[i].value,
-                    key);
-        }
-    return default_value;
-}
-
-serial_bits_t config_get_bits(const char *key, const serial_bits_t default_value) {
-    for (int i = 0; i < config_entry_count; i++)
-        if (strcmp(config_entries[i].key, key) == 0) {
-            if (strcmp(config_entries[i].value, "8N1") == 0)
-                return SERIAL_8N1;
-            fprintf(stderr, "config: invalid bits value '%s', using default\n", config_entries[i].value);
-        }
-    return default_value;
-}
-
-void __config_load_file(const char *filename) {
-    FILE *file = fopen(filename, "r");
-    if (file == NULL) {
-        fprintf(stderr, "config: could not load '%s'\n", filename);
-        return;
-    }
-    char line[CONFIG_MAX_STRING];
-    while (fgets(line, sizeof(line), file)) {
-        char *equals = strchr(line, '=');
-        if (equals) {
-            *equals = '\0';
-            char *key = line;
-            char *value = equals + 1;
-            while (*key && isspace(*key))
-                key++;
-            char *end = key + strlen(key) - 1;
-            while (end > key && isspace(*end))
-                *end-- = '\0';
-            while (*value && isspace(*value))
-                value++;
-            end = value + strlen(value) - 1;
-            while (end > value && isspace(*end))
-                *end-- = '\0';
-            __config_set_value(key, value);
-        }
-    }
-    fclose(file);
-}
+#include "include/config_linux.h"
 
 // clang-format off
-const struct option options_long [] = {
+const struct option config_options [] = {
     {"config",                required_argument, 0, 0},
     {"mqtt-server",           required_argument, 0, 0},
     {"mqtt-topic",            required_argument, 0, 0},
@@ -194,35 +84,13 @@ const struct option options_long [] = {
     {"rssi-channel",          required_argument, 0, 0},
     {"read-timeout-command",  required_argument, 0, 0},
     {"read-timeout-packet",   required_argument, 0, 0},
+    {"interval-stat",         required_argument, 0, 0},
+    {"interval-rssi",         required_argument, 0, 0},
+    {"debug-e22900t22u",      required_argument, 0, 0},
     {"debug",                 required_argument, 0, 0},
     {0, 0, 0, 0}
 };
 // clang-format on
-
-bool config_load(const char *config_file, const int argc, const char *argv[]) {
-    int c;
-    int option_index = 0;
-    optind = 0;
-    while ((c = getopt_long(argc, (char **)argv, "", options_long, &option_index)) != -1) {
-        if (c == 0)
-            if (strcmp(options_long[option_index].name, "config") == 0) {
-                config_file = optarg;
-                break;
-            }
-    }
-    __config_load_file(config_file);
-    optind = 0;
-    while ((c = getopt_long(argc, (char **)argv, "", options_long, &option_index)) != -1) {
-        if (c == 0)
-            if (strcmp(options_long[option_index].name, "config") != 0)
-                __config_set_value(options_long[option_index].name, optarg);
-    }
-    printf("config: loaded from '%s' and command line\n", config_file);
-    return true;
-}
-
-// -----------------------------------------------------------------------------------------------------------------------------------------
-// -----------------------------------------------------------------------------------------------------------------------------------------
 
 void config_populate_serial(serial_config_t *config) {
     config->port = config_get_string("port", SERIAL_PORT_DEFAULT);
@@ -257,96 +125,20 @@ void config_populate_e22900t22u(e22900t22_config_t *config) {
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-struct mosquitto *mosq = NULL;
+#define MQTT_SERVER_DEFAULT "mqtt://localhost"
+#define MQTT_TOPIC_DEFAULT "e22900t22u"
 
-void mqtt_send(const char *topic, const char *message, const int length) {
-    if (!mosq)
-        return;
-    const int result = mosquitto_publish(mosq, NULL, topic, length, message, MQTT_PUBLISH_QOS, MQTT_PUBLISH_RETAIN);
-    if (result != MOSQ_ERR_SUCCESS)
-        fprintf(stderr, "mqtt: publish error: %s\n", mosquitto_strerror(result));
-}
+#define MQTT_CONNECT_TIMEOUT 60
+#define MQTT_PUBLISH_QOS 0
+#define MQTT_PUBLISH_RETAIN false
 
-bool mqtt_parse(const char *string, char *host, const int length, int *port, bool *ssl) {
-    host[0] = '\0';
-    *port = 1883;
-    *ssl = false;
-    if (strncmp(string, "mqtt://", 7) == 0) {
-        strncpy(host, string + 7, length - 1);
-    } else if (strncmp(string, "mqtts://", 8) == 0) {
-        strncpy(host, string + 8, length - 1);
-        *ssl = true;
-        *port = 8883;
-    } else {
-        strcpy(host, string);
-    }
-    char *port_str = strchr(host, ':');
-    if (port_str) {
-        *port_str = '\0'; // Terminate host string at colon
-        *port = atoi(port_str + 1);
-    }
-    return true;
-}
-
-void mqtt_connect_callback(struct mosquitto *m, void *o __attribute__((unused)), int r) {
-    if (m != mosq)
-        return;
-    if (r != 0) {
-        fprintf(stderr, "mqtt: connect failed: %s\n", mosquitto_connack_string(r));
-        return;
-    }
-    printf("mqtt: connected\n");
-}
-
-bool mqtt_begin(const char *server) {
-    char host[CONFIG_MAX_STRING];
-    int port;
-    bool ssl;
-    if (!mqtt_parse(server, host, sizeof(host), &port, &ssl)) {
-        fprintf(stderr, "mqtt: error parsing details in '%s'\n", server);
-        return false;
-    }
-    printf("mqtt: connecting (host='%s', port=%d, ssl=%s)\n", host, port, ssl ? "true" : "false");
-    char client_id[24];
-    sprintf(client_id, "sensor-radiation-%06X", rand() & 0xFFFFFF);
-    int result;
-    mosquitto_lib_init();
-    mosq = mosquitto_new(client_id, true, NULL);
-    if (!mosq) {
-        fprintf(stderr, "mqtt: error creating client instance\n");
-        return false;
-    }
-    if (ssl)
-        mosquitto_tls_insecure_set(mosq, true); // Skip certificate validation
-    mosquitto_connect_callback_set(mosq, mqtt_connect_callback);
-    if ((result = mosquitto_connect(mosq, host, port, MQTT_CONNECT_TIMEOUT)) != MOSQ_ERR_SUCCESS) {
-        fprintf(stderr, "mqtt: error connecting to broker: %s\n", mosquitto_strerror(result));
-        mosquitto_destroy(mosq);
-        mosq = NULL;
-        return false;
-    }
-    if ((result = mosquitto_loop_start(mosq)) != MOSQ_ERR_SUCCESS) {
-        fprintf(stderr, "mqtt: error starting loop: %s\n", mosquitto_strerror(result));
-        mosquitto_disconnect(mosq);
-        mosquitto_destroy(mosq);
-        mosq = NULL;
-        return false;
-    }
-    return true;
-}
-
-void mqtt_end(void) {
-    if (mosq) {
-        mosquitto_loop_stop(mosq, true);
-        mosquitto_disconnect(mosq);
-        mosquitto_destroy(mosq);
-        mosq = NULL;
-    }
-    mosquitto_lib_cleanup();
-}
+#include "include/mqtt_linux.h"
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
+
+#define INTERVAL_STAT_DEFAULT 5 * 60
+#define INTERVAL_RSSI_DEFAULT 1 * 60
 
 volatile bool is_active = true;
 
@@ -368,24 +160,65 @@ bool packet_is_reasonable_json(const unsigned char *packet, const int length) {
     return true;
 }
 
+unsigned long stat_channel_rssi_cnt = 0, stat_packet_rssi_cnt = 0;
+unsigned char stat_channel_rssi_ema, stat_packet_rssi_ema;
+unsigned long stat_packets_okay = 0, stat_packets_drop = 0;
+int interval_stat = 0, interval_rssi = 0;
+time_t interval_stat_last = 0, interval_rssi_last = 0;
+
+int is_interval(int interval, time_t *last) {
+    time_t now = time(NULL);
+    if (*last == 0) {
+        *last = now;
+        return 0;
+    }
+    if ((now - *last) > interval) {
+        const int diff = now - *last;
+        *last = now;
+        return diff;
+    }
+    return 0;
+}
+
+void update_ema(unsigned char value, unsigned char *value_ema, unsigned long *value_cnt) {
+    *value_ema = (*value_cnt)++ == 0 ? value : (unsigned char)((0.2f * (float)value) + ((1 - 0.2f) * (*value_ema)));
+}
+
 void read_and_send(const char *mqtt_topic) {
     const int max_packet_size = E22900T22_PACKET_MAXSIZE + 1; // RSSI
     unsigned char packet_buffer[max_packet_size];
     int packet_size;
     unsigned char rssi;
 
-    printf("read-and-publish (topic='%s')\n", mqtt_topic);
+    printf("read-and-publish (topic='%s', stat=%ds, rssi=%ds)\n", mqtt_topic, interval_stat, interval_rssi);
 
     while (is_active) {
         if (device_packet_read(packet_buffer, config.packet_maxsize + 1, &packet_size, &rssi) && is_active) {
-            if (!packet_is_reasonable_json(packet_buffer, packet_size))
+            if (!packet_is_reasonable_json(packet_buffer, packet_size)) {
                 fprintf(stderr, "read-and-publish: discarding malformed packet (size=%d)\n", packet_size);
-            else
+                stat_packets_drop++;
+            } else {
+                update_ema(rssi, &stat_packet_rssi_ema, &stat_packet_rssi_cnt);
                 mqtt_send(mqtt_topic, (const char *)packet_buffer, packet_size);
-            device_packet_display(packet_buffer, packet_size, rssi);
-        } else if (is_active) {
-            if (device_channel_rssi_read(&rssi) && is_active)
-                device_channel_rssi_display(rssi);
+                stat_packets_okay++;
+            }
+            if (debug)
+                device_packet_display(packet_buffer, packet_size, rssi);
+        }
+
+        if (is_active && is_interval(interval_rssi, &interval_rssi_last)) {
+            if (device_channel_rssi_read(&rssi) && is_active) {
+                update_ema(rssi, &stat_channel_rssi_ema, &stat_channel_rssi_cnt);
+                printf("channel-rssi=%d dBm (avg %d dBm / %ld), packet-rssi=avg %d dbm / %ld\n", get_rssi_dbm(rssi),
+                       get_rssi_dbm(stat_channel_rssi_ema), stat_channel_rssi_cnt, get_rssi_dbm(stat_packet_rssi_ema),
+                       stat_packet_rssi_cnt);
+            }
+        }
+        int period_stat;
+        if (is_active && (period_stat = is_interval(interval_stat, &interval_stat_last))) {
+            printf("packets_okay=%ld (%.2f/min), packets_drop=%ld (%.2f/min)\n", stat_packets_okay,
+                   ((float)stat_packets_okay / ((float)period_stat / 60.0f)), stat_packets_drop,
+                   ((float)stat_packets_drop / ((float)period_stat / 60.0f)));
         }
     }
 }
@@ -398,7 +231,7 @@ int main(int argc, const char *argv[]) {
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
 
-    if (!config_load(CONFIG_FILE_DEFAULT, argc, argv))
+    if (!config_load(CONFIG_FILE_DEFAULT, argc, argv, config_options))
         return EXIT_FAILURE;
     const char *mqtt_server = config_get_string("mqtt-server", MQTT_SERVER_DEFAULT);
     const char *mqtt_topic = config_get_string("mqtt-topic", MQTT_TOPIC_DEFAULT);
@@ -406,6 +239,10 @@ int main(int argc, const char *argv[]) {
     e22900t22_config_t e22900t22u_config;
     config_populate_serial(&serial_config);
     config_populate_e22900t22u(&e22900t22u_config);
+    interval_stat = config_get_integer("interval-stat", INTERVAL_STAT_DEFAULT);
+    interval_rssi = config_get_integer("interval-rssi", INTERVAL_RSSI_DEFAULT);
+    debug_e22900t22u = config_get_integer("debug-e22900t22u", false);
+    debug = config_get_bool("debug", true);
 
     if (!mqtt_begin(mqtt_server))
         return EXIT_FAILURE;

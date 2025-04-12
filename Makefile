@@ -3,24 +3,25 @@ CC = gcc
 CFLAGS = -O6 -Wall -Wextra -Wpedantic
 # LDFLAGS = -lmosquitto
 TARGET = e22900t22u
+SOURCES=include/serial_linux.h include/e22900t22.h
 HOSTNAME = $(shell hostname)
 
 ##
 
 all: $(TARGET) $(TARGET)tomqtt
 
-$(TARGET): $(TARGET).c serial.h src/e22900t22.h
+$(TARGET): $(TARGET).c $(SOURCES)
 	$(CC) $(CFLAGS) -o $(TARGET) $(TARGET).c $(LDFLAGS)
-$(TARGET)tomqtt: $(TARGET)tomqtt.c serial.h src/e22900t22.h
+$(TARGET)tomqtt: $(TARGET)tomqtt.c $(SOURCES)
 	$(CC) $(CFLAGS) -o $(TARGET)tomqtt $(TARGET)tomqtt.c $(LDFLAGS) -lmosquitto
 clean:
 	rm -f $(TARGET) $(TARGET)tomqtt
 format:
-	clang-format -i *.[ch] src/*.h src/*.cpp
+	clang-format -i *.c include/*.h esp32/src/*cpp
 test: $(TARGET)
 	./$(TARGET)
 testmqtt: $(TARGET)tomqtt
-	./$(TARGET)tomqtt --config=$(TARGET)tomqtt.cfg-$(HOSTNAME)
+	./$(TARGET)tomqtt --config=$(TARGET)tomqtt.cfg-$(HOSTNAME) --debug=true
 .PHONY: all clean format test lint
 
 ##

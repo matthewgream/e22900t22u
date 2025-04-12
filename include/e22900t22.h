@@ -58,6 +58,7 @@ const char *get_mode_transmit(const unsigned char value);
 const char *get_wor_cycle(const unsigned char value);
 const char *get_enabled(const unsigned char value);
 float get_frequency(const unsigned char channel);
+int get_rssi_dbm(const unsigned char rssi);
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
@@ -134,7 +135,7 @@ bool device_packet_read(unsigned char *packet, const int max_size, int *packet_s
 void device_packet_display(const unsigned char *packet, const int packet_size, const unsigned char rssi) {
     PRINTF_INFO("device: packet: size=%d", packet_size);
     if (config.rssi_packet)
-        PRINTF_INFO(", rssi=%.2f dBm", -((float)rssi / 2.0));
+        PRINTF_INFO(", rssi=%d dBm", get_rssi_dbm(rssi));
     PRINTF_INFO("\n");
     __hexdump(packet, packet_size, "    ");
 }
@@ -241,7 +242,7 @@ bool device_channel_rssi_read(unsigned char *rssi_value) {
 }
 
 void device_channel_rssi_display(unsigned char rssi_value) {
-    PRINTF_INFO("device: rssi-channel: %d dBm\n", -((int)rssi_value) / 2);
+    PRINTF_INFO("device: rssi-channel: %d dBm\n", get_rssi_dbm(rssi_value));
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
@@ -720,6 +721,8 @@ const char *get_wor_cycle(const unsigned char value) {
 const char *get_enabled(const unsigned char value) { return value > 0 ? "on" : "off"; }
 
 float get_frequency(const unsigned char channel) { return 850.125 + channel; }
+
+int get_rssi_dbm(const unsigned char rssi) { return -(((int)rssi) / 2); }
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
