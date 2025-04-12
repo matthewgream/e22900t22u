@@ -58,6 +58,33 @@ class Intervalable {
     counter_t exceeded() const { return _exceeded; }
 };
 
+
+#include <esp_mac.h>
+
+template <size_t N>
+String BytesToHexString (const uint8_t bytes [], const char *separator = ":") {
+    constexpr size_t separator_max = 1;    // change if needed
+    if (strlen (separator) > separator_max)
+        return String ("");
+    char buffer [(N * 2) + ((N - 1) * separator_max) + 1] = { '\0' }, *buffer_ptr = buffer;
+    for (size_t i = 0; i < N; i++) {
+        if (i > 0 && separator [0] != '\0')
+            for (const char *separator_ptr = separator; *separator_ptr != '\0';)
+                *buffer_ptr++ = *separator_ptr++;
+        static const char hex_chars [] = "0123456789abcdef";
+        *buffer_ptr++ = hex_chars [(bytes [i] >> 4) & 0x0F];
+        *buffer_ptr++ = hex_chars [bytes [i] & 0x0F];
+    }
+    *buffer_ptr = '\0';
+    return String (buffer);
+}
+
+String getMacAddressBase (const char *separator = ":") {
+    uint8_t macaddr [6];
+    esp_read_mac (macaddr, ESP_MAC_BASE);
+    return BytesToHexString<6> (macaddr, separator);
+}
+
 // -----------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------
 
@@ -91,7 +118,10 @@ bool serial_connect(void) {
 
 void serial_disconnect(void) { serial_hw.end(); }
 
-void serial_flush(void) { serial_hw.flush(); }
+void serial_flush(void) { 
+    while (serial_hw.available())
+        serial_hw.read(); 
+}
 
 int serial_write(const unsigned char *buffer, const int length) {
     __sleep_ms(50); // yuck
@@ -181,10 +211,12 @@ void loop() {
         device_channel_rssi_display(rssi);
 
     if (ping) {
-        static int counter = 1;
+        static int counts = 1;
         JsonDocument jsonDoc;
         String jsonStr;
-        jsonDoc["ping"]["counter"] = counter++;
+        jsonDoc["ping"]["source"] = getMacAddressBase ();
+        jsonDoc["ping"]["millis"] = millis ();
+        jsonDoc["ping"]["counts"] = counts++;
         serializeJson(jsonDoc, jsonStr);
         PRINTF_INFO("loop: device_packet_write <<<%s>>>\n", jsonStr.c_str());
         if (!device_packet_write((const unsigned char *)jsonStr.c_str(), jsonStr.length()))
