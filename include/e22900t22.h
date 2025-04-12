@@ -693,7 +693,7 @@ const struct __transmit_power_reg {
 };
 
 const char *get_transmit_power(const e22900txx_device_t *device, const unsigned char value) {
-    for (int i = 0; i < (int) (sizeof(__transmit_power_map) / sizeof(struct __transmit_power_reg)); i++)
+    for (int i = 0; i < (int)(sizeof(__transmit_power_map) / sizeof(struct __transmit_power_reg)); i++)
         if (device->model == __transmit_power_map[i].model)
             return __transmit_power_map[i].value[value & 0x03];
     return "unknown";
