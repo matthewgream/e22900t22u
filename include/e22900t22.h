@@ -656,8 +656,8 @@ const char *get_uart_parity(const unsigned char value) {
 const struct __packet_rate_reg {
     const char *rate_map[8];
 } __packet_rate_map[] = {
-    {"2.4kbps", "2.4kbps", "2.4kbps (Default)", "4.8kbps", "9.6kbps", "19.2kbps", "38.4kbps", "62.5kbps"}, // E22-400/900Txx
-    {"2.4kbps", "2.4kbps", "2.4kbps (Default)", "2.4kbps", "4.8kbps", "9.6kbps", "15.6kbps", "15.6kbps"} // E22-230Txx
+    { {"2.4kbps", "2.4kbps", "2.4kbps (Default)", "4.8kbps", "9.6kbps", "19.2kbps", "38.4kbps", "62.5kbps"} }, // E22-400/900Txx
+    { {"2.4kbps", "2.4kbps", "2.4kbps (Default)", "2.4kbps", "4.8kbps", "9.6kbps", "15.6kbps", "15.6kbps"} } // E22-230Txx
 };
 
 const char *get_packet_rate(const unsigned char value) {
