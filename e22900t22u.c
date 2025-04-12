@@ -86,17 +86,24 @@ int main(int argc __attribute__((unused)), char *argv[] __attribute__((unused)))
         return false;
     }
 
-    if (!device_connect(E22900T22_MODULE_USB, &e22900t22u_config))
+    if (!device_connect(E22900T22_MODULE_USB, &e22900t22u_config)) {
+        serial_disconnect();
         return EXIT_FAILURE;
+    }
     printf("device: connected (port=%s, rate=%d, bits=%s)\n", serial_config.port, serial_config.rate,
            serial_bits_str(serial_config.bits));
-    if (device_mode_config() && device_info_display() && device_config_read_and_update() && device_mode_transfer()) {
-        device_packet_read_and_display(&is_active);
+    if (!(device_mode_config() && device_info_display() && device_config_read_and_update() && device_mode_transfer())) {
         device_disconnect();
-        return EXIT_SUCCESS;
+        serial_disconnect();
+        return EXIT_FAILURE;
     }
+
+    device_packet_read_and_display(&is_active);
+
     device_disconnect();
-    return EXIT_FAILURE;
+    serial_disconnect();
+
+    return EXIT_SUCCESS;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------------

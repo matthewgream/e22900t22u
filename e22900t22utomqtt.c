@@ -233,6 +233,17 @@ void signal_handler(int sig __attribute__((unused))) {
     }
 }
 
+bool packet_is_reasonable_json(const unsigned char *packet, const int length) {
+    if (length < 2)
+        return false;
+    if (packet[0] != '{' || packet[length - 1] != '}')
+        return false;
+    for (int index = 0; index < length; index++)
+        if (!isprint(packet[index]))
+            return false;
+    return true;
+}
+
 void read_and_send() {
     static const int max_packet_size = E22900T22_PACKET_MAXSIZE + 1; // RSSI
     unsigned char packet_buffer[max_packet_size];
@@ -241,8 +252,10 @@ void read_and_send() {
 
     while (is_active) {
         if (device_packet_read(packet_buffer, config.packet_maxsize + 1, &packet_size, &rssi) && is_active) {
-            // XXX if JSON
-            mqtt_send(config_mqtt_topic, (const char *)packet_buffer, packet_size);
+            if (!packet_is_reasonable_json(packet_buffer, packet_size))
+                fprintf(stderr, "read_and_send: discarding malformed packet\n");
+            else
+                mqtt_send(config_mqtt_topic, (const char *)packet_buffer, packet_size);
             device_packet_display(packet_buffer, packet_size, rssi);
         } else if (is_active) {
             if (device_channel_rssi_read(&rssi) && is_active)
@@ -271,12 +284,15 @@ int main(int argc, const char *argv[]) {
         return false;
     }
 
-    if (!device_connect(E22900T22_MODULE_USB, &e22900t22u_config))
+    if (!device_connect(E22900T22_MODULE_USB, &e22900t22u_config)) {
+        serial_disconnect();
         return EXIT_FAILURE;
+    }
     printf("device: connected (port=%s, rate=%d, bits=%s)\n", serial_config.port, serial_config.rate,
            serial_bits_str(serial_config.bits));
     if (!(device_mode_config() && device_info_display() && device_config_read_and_update() && device_mode_transfer())) {
         device_disconnect();
+        serial_disconnect();
         return EXIT_FAILURE;
     }
 
