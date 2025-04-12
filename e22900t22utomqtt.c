@@ -248,7 +248,7 @@ bool config_setup(const int argc, const char *argv[]) {
     interval_rssi = config_get_integer("interval-rssi", INTERVAL_RSSI_DEFAULT);
 
     debug_e22900t22u = config_get_integer("debug-e22900t22u", false);
-    debug_readandsend = config_get_bool("debug", true);
+    debug_readandsend = config_get_bool("debug", false);
 
     return true;
 }
