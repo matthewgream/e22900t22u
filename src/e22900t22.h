@@ -557,6 +557,8 @@ bool device_config_read_and_update() {
             return false;
         }
 
+        __sleep_ms(50);
+
         PRINTF_DEBUG("device: verify module configuration\n");
         unsigned char config_2[DEVICE_MODULE_CONF_SIZE_WRITE];
         if (!device_module_config_read(config_2) || memcmp(config, config_2, sizeof(config_2)) != 0) {

@@ -18,9 +18,9 @@ clean:
 format:
 	clang-format -i *.[ch] src/*.h src/*.cpp
 test: $(TARGET)
-	./$(TARGET) $(TARGET).cfg-$(HOSTNAME)
+	./$(TARGET)
 testmqtt: $(TARGET)tomqtt
-	./$(TARGET)tomqtt $(TARGET)tomqtt.cfg-$(HOSTNAME)
+	./$(TARGET)tomqtt --config=$(TARGET)tomqtt.cfg-$(HOSTNAME)
 .PHONY: all clean format test lint
 
 ##
