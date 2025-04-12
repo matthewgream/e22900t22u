@@ -84,8 +84,8 @@ typedef struct {
 } config_entry_t;
 
 #define CONFIG_MAX_ENTRIES 32
-static config_entry_t config_entries[CONFIG_MAX_ENTRIES];
-static int config_entry_count = 0;
+config_entry_t config_entries[CONFIG_MAX_ENTRIES];
+int config_entry_count = 0;
 
 void __config_set_value(const char *key, const char *value) {
     for (int i = 0; i < config_entry_count; i++)
@@ -148,7 +148,7 @@ serial_bits_t config_get_bits(const char *key, const serial_bits_t default_value
     return default_value;
 }
 
-static void __config_load_file(const char *filename) {
+void __config_load_file(const char *filename) {
     FILE *file = fopen(filename, "r");
     if (file == NULL) {
         fprintf(stderr, "config: could not load '%s'\n", filename);
@@ -177,90 +177,45 @@ static void __config_load_file(const char *filename) {
     fclose(file);
 }
 
-const struct option options_long[] = {{"config", required_argument, 0, 'c'},
-                                      {"mqtt-server", required_argument, 0, 's'},
-                                      {"mqtt-topic", required_argument, 0, 't'},
-                                      {"port", required_argument, 0, 'p'},
-                                      {"rate", required_argument, 0, 'r'},
-                                      {"bits", required_argument, 0, 'b'},
-                                      {"address", required_argument, 0, 'a'},
-                                      {"network", required_argument, 0, 'n'},
-                                      {"channel", required_argument, 0, 'h'},
-                                      {"packet-maxsize", required_argument, 0, 'm'},
-                                      {"listen-before-transmit", required_argument, 0, 'l'},
-                                      {"rssi-packet", required_argument, 0, 'P'},
-                                      {"rssi-channel", required_argument, 0, 'C'},
-                                      {"timeout-command", required_argument, 0, 'T'},
-                                      {"timeout-packet", required_argument, 0, 'K'},
-                                      {"debug", required_argument, 0, 'd'},
-                                      {0, 0, 0, 0}};
+// clang-format off
+const struct option options_long [] = {
+    {"config",                required_argument, 0, 0},
+    {"mqtt-server",           required_argument, 0, 0},
+    {"mqtt-topic",            required_argument, 0, 0},
+    {"port",                  required_argument, 0, 0},
+    {"rate",                  required_argument, 0, 0},
+    {"bits",                  required_argument, 0, 0},
+    {"address",               required_argument, 0, 0},
+    {"network",               required_argument, 0, 0},
+    {"channel",               required_argument, 0, 0},
+    {"packet-size",           required_argument, 0, 0},
+    {"listen-before-transmit",required_argument, 0, 0},
+    {"rssi-packet",           required_argument, 0, 0},
+    {"rssi-channel",          required_argument, 0, 0},
+    {"read-timeout-command",  required_argument, 0, 0},
+    {"read-timeout-packet",   required_argument, 0, 0},
+    {"debug",                 required_argument, 0, 0},
+    {0, 0, 0, 0}
+};
+// clang-format on
 
 bool config_load(const char *config_file, const int argc, const char *argv[]) {
     int c;
     int option_index = 0;
     optind = 0;
-    while ((c = getopt_long(argc, (char **)argv, "c:", options_long, &option_index)) != -1) {
-        if (c == 'c') {
-            config_file = optarg;
-            break;
-        }
+    while ((c = getopt_long(argc, (char **)argv, "", options_long, &option_index)) != -1) {
+        if (c == 0)
+            if (strcmp(options_long[option_index].name, "config") == 0) {
+                config_file = optarg;
+                break;
+            }
     }
     __config_load_file(config_file);
     optind = 0;
-    while ((c = getopt_long(argc, (char **)argv, "c:s:t:p:r:b:a:n:h:m:l:P:C:T:K:d:", options_long, &option_index)) !=
-           -1) {
-        switch (c) {
-        case 'c':
-            break;
-        case 's':
-            __config_set_value("mqtt-server", optarg);
-            break;
-        case 't':
-            __config_set_value("mqtt-topic", optarg);
-            break;
-        case 'p':
-            __config_set_value("port", optarg);
-            break;
-        case 'r':
-            __config_set_value("rate", optarg);
-            break;
-        case 'b':
-            __config_set_value("bits", optarg);
-            break;
-        case 'a':
-            __config_set_value("address", optarg);
-            break;
-        case 'n':
-            __config_set_value("network", optarg);
-            break;
-        case 'h':
-            __config_set_value("channel", optarg);
-            break;
-        case 'm':
-            __config_set_value("packet-maxsize", optarg);
-            break;
-        case 'l':
-            __config_set_value("listen-before-transmit", optarg);
-            break;
-        case 'P':
-            __config_set_value("rssi-packet", optarg);
-            break;
-        case 'C':
-            __config_set_value("rssi-channel", optarg);
-            break;
-        case 'T':
-            __config_set_value("read-timeout-command", optarg);
-            break;
-        case 'K':
-            __config_set_value("read-timeout-packet", optarg);
-            break;
-        case 'd':
-            __config_set_value("debug", optarg);
-            break;
-        default:
-            fprintf(stderr, "config: unknown option %c\n", c);
-            break;
-        }
+    while ((c = getopt_long(argc, (char **)argv, "", options_long, &option_index)) != -1) {
+        if (c == 0)
+            if (strcmp(options_long[option_index].name, "config") != 0)
+                __config_set_value(options_long[option_index].name, optarg);
     }
     printf("config: loaded from '%s' and command line\n", config_file);
     return true;
@@ -274,15 +229,14 @@ void config_populate_serial(serial_config_t *config) {
     config->rate = config_get_integer("rate", SERIAL_RATE_DEFAULT);
     config->bits = config_get_bits("bits", SERIAL_BITS_DEFAULT);
 
-    printf("config: serial: port=%s, uart-rate=%dbps, uart-parity=%s\n", config->port, config->rate,
-           serial_bits_str(config->bits));
+    printf("config: serial: port=%s, rate=%d, bits=%s\n", config->port, config->rate, serial_bits_str(config->bits));
 }
 
 void config_populate_e22900t22u(e22900t22_config_t *config) {
     config->address = (unsigned short)config_get_integer("address", CONFIG_ADDRESS_DEFAULT);
     config->network = (unsigned char)config_get_integer("network", CONFIG_NETWORK_DEFAULT);
     config->channel = (unsigned char)config_get_integer("channel", CONFIG_CHANNEL_DEFAULT);
-    config->packet_maxsize = (unsigned char)config_get_integer("packet-maxsize", CONFIG_PACKET_MAXSIZE_DEFAULT);
+    config->packet_maxsize = (unsigned char)config_get_integer("packet-size", CONFIG_PACKET_MAXSIZE_DEFAULT);
     config->listen_before_transmit = config_get_bool("listen-before-transmit", CONFIG_LISTEN_BEFORE_TRANSMIT);
     config->rssi_packet = config_get_bool("rssi-packet", CONFIG_RSSI_PACKET_DEFAULT);
     config->rssi_channel = config_get_bool("rssi-channel", CONFIG_RSSI_CHANNEL_DEFAULT);
@@ -292,12 +246,12 @@ void config_populate_e22900t22u(e22900t22_config_t *config) {
         (unsigned long)config_get_integer("read-timeout-packet", CONFIG_READ_TIMEOUT_PACKET_DEFAULT);
     config->debug = config_get_bool("debug", false);
 
-    printf(
-        "config: e22900t22u: address=0x%04x, network=0x%02x, channel=%d, packet-size=%dbytes, rssi-channel=%s, "
-        "rssi-packet=%s, mode-listen-before-tx=%s, read-timeout-command=%lums, read-timeout-packet=%lums, debug=%s\n",
-        config->address, config->network, config->channel, config->packet_maxsize, config->rssi_channel ? "on" : "off",
-        config->rssi_packet ? "on" : "off", config->listen_before_transmit ? "on" : "off", config->read_timeout_command,
-        config->read_timeout_packet, config->debug ? "on" : "off");
+    printf("config: e22900t22u: address=0x%04x, network=0x%02x, channel=%d, packet-size=%d, rssi-channel=%s, "
+           "rssi-packet=%s, mode-listen-before-tx=%s, read-timeout-command=%lu, read-timeout-packet=%lu, debug=%s\n",
+           config->address, config->network, config->channel, config->packet_maxsize,
+           config->rssi_channel ? "on" : "off", config->rssi_packet ? "on" : "off",
+           config->listen_before_transmit ? "on" : "off", config->read_timeout_command, config->read_timeout_packet,
+           config->debug ? "on" : "off");
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
@@ -415,7 +369,7 @@ bool packet_is_reasonable_json(const unsigned char *packet, const int length) {
 }
 
 void read_and_send(const char *mqtt_topic) {
-    static const int max_packet_size = E22900T22_PACKET_MAXSIZE + 1; // RSSI
+    const int max_packet_size = E22900T22_PACKET_MAXSIZE + 1; // RSSI
     unsigned char packet_buffer[max_packet_size];
     int packet_size;
     unsigned char rssi;
