@@ -63,7 +63,7 @@ const char *get_transmit_power(const e22900txx_device_t *device, const unsigned 
 const char *get_mode_transmit(const unsigned char value);
 const char *get_wor_cycle(const unsigned char value);
 const char *get_enabled(const unsigned char value);
-float get_frequency(const unsigned char channel);
+float get_frequency(const e22900txx_device_t *device, const unsigned char channel);
 int get_rssi_dbm(const unsigned char rssi);
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
@@ -218,7 +218,7 @@ bool device_cmd_send_wrapper(const char *name, const unsigned char *command, con
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-bool device_channel_rssi_read(unsigned char *rssi_value) {
+bool device_channel_rssi_read(unsigned char *rssi) {
 
     static const char *name = "channel_rssi_read";
     static const unsigned char command[] = {0xC0, 0xC1, 0xC2, 0xC3, 0x00, 0x01};
@@ -243,12 +243,12 @@ bool device_channel_rssi_read(unsigned char *rssi_value) {
         return false;
     }
 
-    *rssi_value = buffer[3];
+    *rssi = buffer[3];
     return true;
 }
 
-void device_channel_rssi_display(unsigned char rssi_value) {
-    PRINTF_INFO("device: rssi-channel: %d dBm\n", get_rssi_dbm(rssi_value));
+void device_channel_rssi_display(unsigned char rssi) {
+    PRINTF_INFO("device: rssi-channel: %d dBm\n", get_rssi_dbm(rssi));
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
@@ -413,7 +413,7 @@ void device_module_config_display(const unsigned char *config_device) {
 
     PRINTF_INFO("address=0x%04X, ", address);
     PRINTF_INFO("network=0x%02X, ", network);
-    PRINTF_INFO("channel=%d (frequency=%.3fMHz), ", channel, get_frequency(channel));
+    PRINTF_INFO("channel=%d (frequency=%.3fMHz), ", channel, get_frequency(&device, channel));
 
     PRINTF_INFO("data-rate=%s, ", get_packet_rate(reg0));
     PRINTF_INFO("packet-size=%s, ", get_packet_size(reg1));
@@ -478,7 +478,7 @@ bool update_configuration(unsigned char *config_device) {
     const unsigned char channel = config_device[5];
     if (channel != config.channel) {
         PRINTF_INFO("device: update_configuration: channel: %d (%.3fMHz) --> %d (%.3fMHz)\n", channel,
-                    get_frequency(channel), config.channel, get_frequency(config.channel));
+                    get_frequency(&device, channel), config.channel, get_frequency(&device, config.channel));
         config_device[5] = config.channel;
     }
 
@@ -744,9 +744,26 @@ const char *get_wor_cycle(const unsigned char value) {
 
 const char *get_enabled(const unsigned char value) { return value > 0 ? "on" : "off"; }
 
-float get_frequency(const unsigned char channel) { return 850.125 + channel; }
+float get_frequency(const e22900txx_device_t *device, const unsigned char channel) {
+    switch (device->frequency) {
+        // case ??: return 220.125 + (channel * 0.25); // E22-230T*
+        // case ??: return 410.125 + (channel * 1.0); // E22-400T*
+        case 11: return 850.125 + (channel * 1.0); // E22-900T*
+        default: return 0.0;
+    }
+}
 
-int get_rssi_dbm(const unsigned char rssi) { return -(((int)rssi) / 2); }
+int get_rssi_dbm(const unsigned char rssi) { 
+    #ifdef E22900T22_SUPPORT_MODULE_DIP
+    if (module == E22900T22_MODULE_DIP)
+        return -(256 - rssi);
+    #endif
+    #ifdef E22900T22_SUPPORT_MODULE_USB
+    if (module == E22900T22_MODULE_USB)
+        return -(((int)rssi) / 2); 
+    #endif
+    return 0;
+}
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
