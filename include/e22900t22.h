@@ -653,26 +653,20 @@ const char *get_uart_parity(const unsigned char value) {
     }
 }
 
+const struct __packet_rate_reg {
+    const char *rate_map [8];
+} __packet_rate_map[] = {
+    {"2.4kbps", "2.4kbps", "2.4kbps (Default)", "4.8kbps", "9.6kbps", "19.2kbps", "38.4kbps", "62.5kbps"}, // E22-400Txx/900Txx
+    {"2.4kbps", "2.4kbps", "2.4kbps (Default)", "2.4kbps", "4.8kbps", "9.6kbps", "15.6kbps", "15.6kbps" } // E22-230Txx
+};
+
 const char *get_packet_rate(const unsigned char value) {
-    switch (value & 0x07) {
-    case 0:
-        return "2.4kbps";
-    case 1:
-        return "2.4kbps";
-    case 2:
-        return "2.4kbps (Default)";
-    case 3:
-        return "4.8kbps";
-    case 4:
-        return "9.6kbps";
-    case 5:
-        return "19.2kbps";
-    case 6:
-        return "38.4kbps";
-    case 7:
-        return "62.5kbps";
-    default:
-        return "NOT_REACHED";
+    switch (device.frequency) {
+        // case ??: // E22-400Txx
+        case 11: return __packet_rate_map [0].rate_map [value & 0x07]; // E22-900Txx
+        // case ??: return __packet_rate_map [1].rate_map [value & 0x07]; // E22-230Txx
+        default:
+            return "unknown";
     }
 }
 
@@ -695,10 +689,10 @@ const struct __transmit_power_reg {
     unsigned char power_max;
     const char *power_map[4];
 } __transmit_power_map[] = {
-    {20, {"20dBm (Default)", "17dBm", "14dBm", "10dBm"}}, // E22-900T20
-    {22, {"22dBm (Default)", "17dBm", "13dBm", "10dBm"}}, // E22-900T22
-    {30, {"30dBm (Default)", "27dBm", "24dBm", "21dBm"}}, // E22-900T30
-    {33, {"33dBm (Default)", "30dBm", "27dBm", "24dBm"}}, // E22-900T33
+    {20, {"20dBm (Default)", "17dBm", "14dBm", "10dBm"}}, // E22-xxxT20
+    {22, {"22dBm (Default)", "17dBm", "13dBm", "10dBm"}}, // E22-xxxT22
+    {30, {"30dBm (Default)", "27dBm", "24dBm", "21dBm"}}, // E22-xxxT30
+    {33, {"33dBm (Default)", "30dBm", "27dBm", "24dBm"}}, // E22-xxxT33
 };
 
 const char *get_transmit_power(const unsigned char value) {
@@ -746,10 +740,10 @@ const char *get_enabled(const unsigned char value) { return value > 0 ? "on" : "
 
 float get_frequency(const unsigned char channel) {
     switch (device.frequency) {
-    // case ??: return 220.125 + (channel * 0.25); // E22-230T*
-    // case ??: return 410.125 + (channel * 1.0); // E22-400T*
+    // case ??: return 220.125 + (channel * 0.25); // E22-230Txx
+    // case ??: return 410.125 + (channel * 1.0); // E22-400Txx
     case 11:
-        return 850.125 + (channel * 1.0); // E22-900T*
+        return 850.125 + (channel * 1.0); // E22-900Txx
     default:
         return 0.0;
     }
