@@ -22,7 +22,7 @@
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-bool debug = false;
+bool debug_readandsend = false;
 bool debug_e22900t22u = false;
 
 void printf_debug(const char *format, ...) {
@@ -142,13 +142,6 @@ void config_populate_e22900t22u(e22900t22_config_t *config) {
 
 volatile bool is_active = true;
 
-void signal_handler(int sig __attribute__((unused))) {
-    if (is_active) {
-        printf("stopping\n");
-        is_active = false;
-    }
-}
-
 bool packet_is_reasonable_json(const unsigned char *packet, const int length) {
     if (length < 2)
         return false;
@@ -160,13 +153,14 @@ bool packet_is_reasonable_json(const unsigned char *packet, const int length) {
     return true;
 }
 
+bool capture_rssi_packet = false, capture_rssi_channel = false;
 unsigned long stat_channel_rssi_cnt = 0, stat_packet_rssi_cnt = 0;
 unsigned char stat_channel_rssi_ema, stat_packet_rssi_ema;
 unsigned long stat_packets_okay = 0, stat_packets_drop = 0;
 int interval_stat = 0, interval_rssi = 0;
 time_t interval_stat_last = 0, interval_rssi_last = 0;
 
-int is_interval(int interval, time_t *last) {
+int interval_passed(int interval, time_t *last) {
     time_t now = time(NULL);
     if (*last == 0) {
         *last = now;
@@ -180,46 +174,92 @@ int is_interval(int interval, time_t *last) {
     return 0;
 }
 
-void update_ema(unsigned char value, unsigned char *value_ema, unsigned long *value_cnt) {
+void ema_update(unsigned char value, unsigned char *value_ema, unsigned long *value_cnt) {
     *value_ema = (*value_cnt)++ == 0 ? value : (unsigned char)((0.2f * (float)value) + ((1 - 0.2f) * (*value_ema)));
 }
 
 void read_and_send(const char *mqtt_topic) {
-    const int max_packet_size = E22900T22_PACKET_MAXSIZE + 1; // RSSI
+
+    const int max_packet_size = E22900T22_PACKET_MAXSIZE + 1; // +1 for RSSI
     unsigned char packet_buffer[max_packet_size];
     int packet_size;
-    unsigned char rssi;
 
-    printf("read-and-publish (topic='%s', stat=%ds, rssi=%ds)\n", mqtt_topic, interval_stat, interval_rssi);
+    printf("read-and-publish (topic='%s', stat=%ds, rssi=%ds [packets=%c, channel=%c])\n", mqtt_topic, interval_stat,
+           interval_rssi, capture_rssi_packet ? 'y' : 'n', capture_rssi_channel ? 'y' : 'n');
 
     while (is_active) {
-        if (device_packet_read(packet_buffer, config.packet_maxsize + 1, &packet_size, &rssi) && is_active) {
+
+        unsigned char packet_rssi, channel_rssi;
+
+        if (device_packet_read(packet_buffer, config.packet_maxsize + 1, &packet_size, &packet_rssi) && is_active) {
             if (!packet_is_reasonable_json(packet_buffer, packet_size)) {
                 fprintf(stderr, "read-and-publish: discarding malformed packet (size=%d)\n", packet_size);
                 stat_packets_drop++;
             } else {
-                update_ema(rssi, &stat_packet_rssi_ema, &stat_packet_rssi_cnt);
+                if (capture_rssi_packet)
+                    ema_update(packet_rssi, &stat_packet_rssi_ema, &stat_packet_rssi_cnt);
                 mqtt_send(mqtt_topic, (const char *)packet_buffer, packet_size);
                 stat_packets_okay++;
             }
-            if (debug)
-                device_packet_display(packet_buffer, packet_size, rssi);
+            if (debug_readandsend)
+                device_packet_display(packet_buffer, packet_size, packet_rssi);
         }
 
-        if (is_active && is_interval(interval_rssi, &interval_rssi_last)) {
-            if (device_channel_rssi_read(&rssi) && is_active) {
-                update_ema(rssi, &stat_channel_rssi_ema, &stat_channel_rssi_cnt);
-                printf("channel-rssi=%d dBm (avg %d dBm / %ld), packet-rssi=avg %d dbm / %ld\n", get_rssi_dbm(rssi),
-                       get_rssi_dbm(stat_channel_rssi_ema), stat_channel_rssi_cnt, get_rssi_dbm(stat_packet_rssi_ema),
-                       stat_packet_rssi_cnt);
-            }
+        if (is_active && capture_rssi_channel && interval_passed(interval_rssi, &interval_rssi_last)) {
+            if (device_channel_rssi_read(&channel_rssi) && is_active)
+                ema_update(channel_rssi, &stat_channel_rssi_ema, &stat_channel_rssi_cnt);
         }
+
         int period_stat;
-        if (is_active && (period_stat = is_interval(interval_stat, &interval_stat_last))) {
-            printf("packets_okay=%ld (%.2f/min), packets_drop=%ld (%.2f/min)\n", stat_packets_okay,
+        if (is_active && (period_stat = interval_passed(interval_stat, &interval_stat_last))) {
+            printf("packets-okay=%ld (%.2f/min), packets-drop=%ld (%.2f/min)", stat_packets_okay,
                    ((float)stat_packets_okay / ((float)period_stat / 60.0f)), stat_packets_drop,
                    ((float)stat_packets_drop / ((float)period_stat / 60.0f)));
+            stat_packets_okay = stat_packets_drop = 0;
+            if (capture_rssi_channel)
+                printf(", channel-rssi=%d dBm (%ld)", get_rssi_dbm(stat_channel_rssi_ema), stat_channel_rssi_cnt);
+            if (capture_rssi_packet)
+                printf(", packet-rssi=%d dbm (%ld)", get_rssi_dbm(stat_packet_rssi_ema), stat_packet_rssi_cnt);
+            printf("\n");
         }
+    }
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------------------------------------------------------------------
+
+serial_config_t serial_config;
+e22900t22_config_t e22900t22u_config;
+const char *mqtt_server, *mqtt_topic;
+
+bool config_setup(const int argc, const char *argv[]) {
+
+    if (!config_load(CONFIG_FILE_DEFAULT, argc, argv, config_options))
+        return false;
+
+    config_populate_serial(&serial_config);
+    config_populate_e22900t22u(&e22900t22u_config);
+    mqtt_server = config_get_string("mqtt-server", MQTT_SERVER_DEFAULT);
+    mqtt_topic = config_get_string("mqtt-topic", MQTT_TOPIC_DEFAULT);
+
+    capture_rssi_packet = config_get_bool("rssi-packet", CONFIG_RSSI_PACKET_DEFAULT);
+    capture_rssi_channel = config_get_bool("rssi-channel", CONFIG_RSSI_CHANNEL_DEFAULT);
+    interval_stat = config_get_integer("interval-stat", INTERVAL_STAT_DEFAULT);
+    interval_rssi = config_get_integer("interval-rssi", INTERVAL_RSSI_DEFAULT);
+
+    debug_e22900t22u = config_get_integer("debug-e22900t22u", false);
+    debug_readandsend = config_get_bool("debug", true);
+
+    return true;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------------------------------------------------------------------
+
+void signal_handler(int sig __attribute__((unused))) {
+    if (is_active) {
+        printf("stopping\n");
+        is_active = false;
     }
 }
 
@@ -231,18 +271,8 @@ int main(int argc, const char *argv[]) {
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
 
-    if (!config_load(CONFIG_FILE_DEFAULT, argc, argv, config_options))
+    if (!config_setup(argc, argv))
         return EXIT_FAILURE;
-    const char *mqtt_server = config_get_string("mqtt-server", MQTT_SERVER_DEFAULT);
-    const char *mqtt_topic = config_get_string("mqtt-topic", MQTT_TOPIC_DEFAULT);
-    serial_config_t serial_config;
-    e22900t22_config_t e22900t22u_config;
-    config_populate_serial(&serial_config);
-    config_populate_e22900t22u(&e22900t22u_config);
-    interval_stat = config_get_integer("interval-stat", INTERVAL_STAT_DEFAULT);
-    interval_rssi = config_get_integer("interval-rssi", INTERVAL_RSSI_DEFAULT);
-    debug_e22900t22u = config_get_integer("debug-e22900t22u", false);
-    debug = config_get_bool("debug", true);
 
     if (!mqtt_begin(mqtt_server))
         return EXIT_FAILURE;
