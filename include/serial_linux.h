@@ -150,7 +150,27 @@ int serial_read(unsigned char *buffer, const int length, const int timeout_ms) {
     const int select_result = select(serial_fd + 1, &rdset, NULL, NULL, &tv);
     if (select_result <= 0)
         return select_result; // timeout or error
-    return read(serial_fd, buffer, length);
+    int bytes_read = 0;
+    unsigned char byte;
+    bool buffer_complete = false;
+    while (bytes_read < length) {
+        FD_ZERO(&rdset);
+        FD_SET(serial_fd, &rdset);
+        tv.tv_sec = 0;
+        tv.tv_usec = 100000;
+        if (select(serial_fd + 1, &rdset, NULL, NULL, &tv) <= 0) {
+            buffer_complete = true;
+            break;
+        }
+        if (read(serial_fd, &byte, 1) != 1)
+            break;
+        buffer[bytes_read++] = byte;
+    }
+    if (!buffer_complete && bytes_read > length) {
+        PRINTF_ERROR("device: buffer_read: buffer too large (max %d bytes, read %d bytes)\n", length, bytes_read);
+        return -1;
+    }
+    return bytes_read;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------------

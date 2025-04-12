@@ -189,7 +189,7 @@ void read_and_send(const char *mqtt_topic) {
 
     while (is_active) {
 
-        unsigned char packet_rssi, channel_rssi;
+        unsigned char packet_rssi = 0, channel_rssi = 0;
 
         if (device_packet_read(packet_buffer, config.packet_maxsize + 1, &packet_size, &packet_rssi) && is_active) {
             if (!packet_is_reasonable_json(packet_buffer, packet_size)) {

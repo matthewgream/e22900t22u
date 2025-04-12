@@ -50,9 +50,7 @@ typedef struct {
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-e22900txx_device_t device = {
-    .model = 22
-};
+e22900txx_device_t device = {.model = 22};
 e22900t22_module_t module;
 e22900t22_config_t config;
 
@@ -60,7 +58,7 @@ const char *get_uart_rate(const unsigned char value);
 const char *get_uart_parity(const unsigned char value);
 const char *get_packet_rate(const unsigned char value);
 const char *get_packet_size(const unsigned char value);
-const char *get_transmit_power(const e22900txx_device_t* device, const unsigned char value);
+const char *get_transmit_power(const e22900txx_device_t *device, const unsigned char value);
 const char *get_mode_transmit(const unsigned char value);
 const char *get_wor_cycle(const unsigned char value);
 const char *get_enabled(const unsigned char value);
@@ -346,8 +344,8 @@ bool device_mode_transfer(void) { return device_mode_switch(DEVICE_MODE_TRANSFER
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
 #define DEVICE_PRODUCT_INFO_SIZE 7
-#define DEVICE_PRODUCT_INFO_OFFSET_MODEL    3
-#define DEVICE_PRODUCT_INFO_OFFSET_VERSION  4
+#define DEVICE_PRODUCT_INFO_OFFSET_MODEL 3
+#define DEVICE_PRODUCT_INFO_OFFSET_VERSION 4
 #define DEVICE_PRODUCT_INFO_OFFSET_FEATURES 5
 
 bool device_product_info_read(unsigned char *result) {
@@ -357,7 +355,8 @@ bool device_product_info_read(unsigned char *result) {
 
 void device_product_info_display(const unsigned char *info) {
     PRINTF_INFO("device: product_info: ");
-    PRINTF_INFO("model=%d, version=%d, features=%02X", info[DEVICE_PRODUCT_INFO_OFFSET_MODEL], info[DEVICE_PRODUCT_INFO_OFFSET_VERSION], info[DEVICE_PRODUCT_INFO_OFFSET_FEATURES]);
+    PRINTF_INFO("model=%d, version=%d, features=%02X", info[DEVICE_PRODUCT_INFO_OFFSET_MODEL],
+                info[DEVICE_PRODUCT_INFO_OFFSET_VERSION], info[DEVICE_PRODUCT_INFO_OFFSET_FEATURES]);
     PRINTF_INFO(" [");
     for (int i = 0; i < DEVICE_PRODUCT_INFO_SIZE; i++)
         PRINTF_INFO("%s%02X", (i == 0 ? "" : " "), info[i]);
@@ -545,10 +544,10 @@ bool device_info_display() {
     }
 
     device_product_info_display(product_info);
-    
-    device.model = product_info [DEVICE_PRODUCT_INFO_OFFSET_MODEL];
-    device.version = product_info [DEVICE_PRODUCT_INFO_OFFSET_VERSION];
-    device.features = product_info [DEVICE_PRODUCT_INFO_OFFSET_FEATURES];
+
+    device.model = product_info[DEVICE_PRODUCT_INFO_OFFSET_MODEL];
+    device.version = product_info[DEVICE_PRODUCT_INFO_OFFSET_VERSION];
+    device.features = product_info[DEVICE_PRODUCT_INFO_OFFSET_FEATURES];
 
     return true;
 }
@@ -684,19 +683,19 @@ const char *get_packet_size(const unsigned char value) {
 }
 
 const struct __transmit_power_reg {
-        unsigned char model;
-        const char* value [4];
-} __transmit_power_map [] = {
-    { 20, { "20dBm (Default)", "17dBm", "14dBm", "10dBm" } }, // E22-900T20
-    { 22, { "22dBm (Default)", "17dBm", "13dBm", "10dBm" } }, // E22-900T22
-    { 30, { "30dBm (Default)", "27dBm", "24dBm", "21dBm" } }, // E22-900T30
-    { 33, { "33dBm (Default)", "30dBm", "27dBm", "24dBm" } }, // E22-900T33
+    unsigned char model;
+    const char *value[4];
+} __transmit_power_map[] = {
+    {20, {"20dBm (Default)", "17dBm", "14dBm", "10dBm"}}, // E22-900T20
+    {22, {"22dBm (Default)", "17dBm", "13dBm", "10dBm"}}, // E22-900T22
+    {30, {"30dBm (Default)", "27dBm", "24dBm", "21dBm"}}, // E22-900T30
+    {33, {"33dBm (Default)", "30dBm", "27dBm", "24dBm"}}, // E22-900T33
 };
 
-const char *get_transmit_power(const e22900txx_device_t* device, const unsigned char value) {
-    for (int i = 0; i < sizeof (__transmit_power_map) / sizeof (struct __transmit_power_reg); i ++)
-        if (device->model == __transmit_power_map [i].model)
-            return __transmit_power_map [i].value [value & 0x03];
+const char *get_transmit_power(const e22900txx_device_t *device, const unsigned char value) {
+    for (int i = 0; i < (int) (sizeof(__transmit_power_map) / sizeof(struct __transmit_power_reg)); i++)
+        if (device->model == __transmit_power_map[i].model)
+            return __transmit_power_map[i].value[value & 0x03];
     return "unknown";
 }
 
