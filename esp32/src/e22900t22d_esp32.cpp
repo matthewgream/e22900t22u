@@ -136,7 +136,7 @@ int serial_read(unsigned char *buffer, const int length, const int timeout_ms) {
 
 #define E22900T22_SUPPORT_MODULE_DIP
 #undef E22900T22_SUPPORT_MODULE_USB
-#include "../../include/e22900t22.h"
+#include "../../include/e22xxxtxx.h"
 
 void e22900t22d_cfg_pin() {
     pinMode(PIN_E22900T22D_M0, OUTPUT);

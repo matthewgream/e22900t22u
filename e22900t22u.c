@@ -42,7 +42,7 @@ void printf_stderr(const char *format, ...) {
 #include "include/serial_linux.h"
 #undef E22900T22_SUPPORT_MODULE_DIP
 #define E22900T22_SUPPORT_MODULE_USB
-#include "include/e22900t22.h"
+#include "include/e22xxxtxx.h"
 void __sleep_ms(const unsigned long ms) { usleep(ms * 1000); }
 
 serial_config_t serial_config = {
