@@ -281,6 +281,7 @@ bool device_mode_switch_impl_software(const device_mode_t mode) {
     const unsigned char *command = (mode == DEVICE_MODE_CONFIG) ? cmd_switch_config : cmd_switch_transfer;
     const int command_length = (mode == DEVICE_MODE_CONFIG) ? sizeof(cmd_switch_config) : sizeof(cmd_switch_transfer);
 
+    serial_flush();
     if (!device_cmd_send(command, command_length)) {
         PRINTF_ERROR("device: %s: failed to send command\n", name);
         return false;
