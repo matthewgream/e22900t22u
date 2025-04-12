@@ -1,11 +1,11 @@
 
-Connector for EBYTE E22-xxxTxxU/D devices, for USB module (Linux to MQTT) and DIP module (ESP32).
+Connector for EBYTE E22-xxxTxxU/D devices, for USB module (Linux) and DIP module (ESP32).
 
-Tested with E22-900T22U (USB), E22-900T22D (DIP) and E22-900T30D (DIP) devices. 
+Tested with E22-900T22U (USB), E22-900T22D (DIP) and E22-900T30D (DIP) devices, see specs directory.
 
-Should work with all E22-xxxTxxU/D devices, namely 230, 400 and 900 frequency series, and 20, 22, 30 and 33 dbm power varients.
+Should work for entire family: 230, 400 and 900 frequency and 20, 22, 30 and 33 dbm power varients.
 
-Product information at https://www.cdebyte.com/products/E22-900T22U and https://www.cdebyte.com/products/E22-900T22D.
+Further information at https://www.cdebyte.com/Module-SPISOCUART-SX12.
 
-Specs included in the specs directory.
+Linux version has a command line tester and a 'tomqtt' version with udev and systemd configuration files.
 
