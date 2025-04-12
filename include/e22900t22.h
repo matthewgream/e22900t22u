@@ -746,22 +746,24 @@ const char *get_enabled(const unsigned char value) { return value > 0 ? "on" : "
 
 float get_frequency(const e22900txx_device_t *device, const unsigned char channel) {
     switch (device->frequency) {
-        // case ??: return 220.125 + (channel * 0.25); // E22-230T*
-        // case ??: return 410.125 + (channel * 1.0); // E22-400T*
-        case 11: return 850.125 + (channel * 1.0); // E22-900T*
-        default: return 0.0;
+    // case ??: return 220.125 + (channel * 0.25); // E22-230T*
+    // case ??: return 410.125 + (channel * 1.0); // E22-400T*
+    case 11:
+        return 850.125 + (channel * 1.0); // E22-900T*
+    default:
+        return 0.0;
     }
 }
 
-int get_rssi_dbm(const unsigned char rssi) { 
-    #ifdef E22900T22_SUPPORT_MODULE_DIP
+int get_rssi_dbm(const unsigned char rssi) {
+#ifdef E22900T22_SUPPORT_MODULE_DIP
     if (module == E22900T22_MODULE_DIP)
         return -(256 - rssi);
-    #endif
-    #ifdef E22900T22_SUPPORT_MODULE_USB
+#endif
+#ifdef E22900T22_SUPPORT_MODULE_USB
     if (module == E22900T22_MODULE_USB)
-        return -(((int)rssi) / 2); 
-    #endif
+        return -(((int)rssi) / 2);
+#endif
     return 0;
 }
 
