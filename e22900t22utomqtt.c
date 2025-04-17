@@ -68,6 +68,7 @@ void __sleep_ms(const unsigned long ms) { usleep(ms * 1000); }
 // clang-format off
 const struct option config_options [] = {
     {"config",                required_argument, 0, 0},
+    {"mqtt-client",           required_argument, 0, 0},
     {"mqtt-server",           required_argument, 0, 0},
     {"mqtt-topic",            required_argument, 0, 0},
     {"port",                  required_argument, 0, 0},
@@ -123,6 +124,7 @@ void config_populate_e22900t22u(e22900t22_config_t *config) {
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
+#define MQTT_CLIENT_DEFAULT "e22900t22u-mqtt"
 #define MQTT_SERVER_DEFAULT "mqtt://localhost"
 #define MQTT_TOPIC_DEFAULT "e22900t22u"
 
@@ -231,7 +233,7 @@ void read_and_send(const char *mqtt_topic) {
 
 serial_config_t serial_config;
 e22900t22_config_t e22900t22u_config;
-const char *mqtt_server, *mqtt_topic;
+const char *mqtt_client, *mqtt_server, *mqtt_topic;
 
 bool config_setup(const int argc, const char *argv[]) {
 
@@ -240,6 +242,7 @@ bool config_setup(const int argc, const char *argv[]) {
 
     config_populate_serial(&serial_config);
     config_populate_e22900t22u(&e22900t22u_config);
+    mqtt_client = config_get_string("mqtt-client", MQTT_CLIENT_DEFAULT);
     mqtt_server = config_get_string("mqtt-server", MQTT_SERVER_DEFAULT);
     mqtt_topic = config_get_string("mqtt-topic", MQTT_TOPIC_DEFAULT);
 
@@ -275,7 +278,7 @@ int main(int argc, const char *argv[]) {
     if (!config_setup(argc, argv))
         return EXIT_FAILURE;
 
-    if (!mqtt_begin(mqtt_server))
+    if (!mqtt_begin(mqtt_server, mqtt_client))
         return EXIT_FAILURE;
 
     if (!serial_connect(&serial_config)) {

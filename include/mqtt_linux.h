@@ -48,7 +48,7 @@ void mqtt_connect_callback(struct mosquitto *m, void *o __attribute__((unused)),
     printf("mqtt: connected\n");
 }
 
-bool mqtt_begin(const char *server) {
+bool mqtt_begin(const char *server, const char* client) {
     char host[CONFIG_MAX_STRING];
     int port;
     bool ssl;
@@ -56,9 +56,9 @@ bool mqtt_begin(const char *server) {
         fprintf(stderr, "mqtt: error parsing details in '%s'\n", server);
         return false;
     }
-    printf("mqtt: connecting (host='%s', port=%d, ssl=%s)\n", host, port, ssl ? "true" : "false");
+    printf("mqtt: connecting (host='%s', port=%d, ssl=%s, client='%s')\n", host, port, ssl ? "true" : "false", client);
     char client_id[24];
-    sprintf(client_id, "sensor-radiation-%06X", rand() & 0xFFFFFF);
+    sprintf(client_id, "%s-%06X", client ? client : "mqtt-linux", rand() & 0xFFFFFF);
     int result;
     mosquitto_lib_init();
     mosq = mosquitto_new(client_id, true, NULL);

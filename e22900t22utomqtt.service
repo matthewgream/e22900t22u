@@ -5,7 +5,7 @@ After=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/opt/e22900t22utomqtt/e22900t22utomqtt /opt/e22900t22utomqtt/e22900t22utomqtt.cfg
+ExecStart=/opt/e22900t22utomqtt/e22900t22utomqtt --config /opt/e22900t22utomqtt/e22900t22utomqtt.cfg
 ExecReload=kill -HUP $MAINPID
 KillMode=process
 Restart=on-failure
