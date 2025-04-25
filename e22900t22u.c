@@ -40,10 +40,18 @@ void printf_stderr(const char *format, ...) {
 #define PRINTF_ERROR printf_stderr
 
 #include "include/serial_linux.h"
+
+// -----------------------------------------------------------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------------------------------------------------------------------
+
 #undef E22900T22_SUPPORT_MODULE_DIP
 #define E22900T22_SUPPORT_MODULE_USB
 #include "include/e22xxxtxx.h"
+
 void __sleep_ms(const unsigned long ms) { usleep(ms * 1000); }
+
+// -----------------------------------------------------------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------------------------------------------------------------------
 
 serial_config_t serial_config = {
     .port = "/dev/e22900t22u",
@@ -67,12 +75,12 @@ e22900t22_config_t e22900t22u_config = {
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-volatile bool is_active = true;
+volatile bool running = true;
 
 void signal_handler(int sig __attribute__((unused))) {
-    if (is_active) {
+    if (running) {
         printf("stopping\n");
-        is_active = false;
+        running = false;
     }
 }
 
@@ -83,7 +91,7 @@ int main(int argc __attribute__((unused)), char *argv[] __attribute__((unused)))
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
 
-    if (!serial_connect(&serial_config)) {
+    if (!serial_begin(&serial_config) || !serial_connect()) {
         fprintf(stderr, "device: failed to connect (port=%s, rate=%d, bits=%s)\n", serial_config.port,
                 serial_config.rate, serial_bits_str(serial_config.bits));
         return false;
@@ -101,10 +109,10 @@ int main(int argc __attribute__((unused)), char *argv[] __attribute__((unused)))
         return EXIT_FAILURE;
     }
 
-    device_packet_read_and_display(&is_active);
+    device_packet_read_and_display(&running);
 
     device_disconnect();
-    serial_disconnect();
+    serial_end();
 
     return EXIT_SUCCESS;
 }

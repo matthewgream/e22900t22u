@@ -48,7 +48,7 @@ void mqtt_connect_callback(struct mosquitto *m, void *o __attribute__((unused)),
     printf("mqtt: connected\n");
 }
 
-bool mqtt_begin(const char *server, const char* client) {
+bool mqtt_begin(const char *server, const char *client) {
     char host[CONFIG_MAX_STRING];
     int port;
     bool ssl;

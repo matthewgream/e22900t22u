@@ -17,6 +17,8 @@
 #include <string.h>
 #include <time.h>
 
+#include "include/util_linux.h"
+
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
@@ -49,19 +51,28 @@ void printf_stderr(const char *format, ...) {
 #define PRINTF_INFO printf_stdout
 
 #include "include/serial_linux.h"
+
 #undef E22900T22_SUPPORT_MODULE_DIP
 #define E22900T22_SUPPORT_MODULE_USB
 #include "include/e22xxxtxx.h"
-void __sleep_ms(const unsigned long ms) { usleep(ms * 1000); }
 
-#define SERIAL_PORT_DEFAULT "/dev/e22900t22u"
-#define SERIAL_RATE_DEFAULT 9600
-#define SERIAL_BITS_DEFAULT SERIAL_8N1
+void __sleep_ms(const unsigned long ms) { usleep(ms * 1000); }
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
 #define CONFIG_FILE_DEFAULT "e22900t22utomqtt.cfg"
+
+#define SERIAL_PORT_DEFAULT "/dev/e22900t22u"
+#define SERIAL_RATE_DEFAULT 9600
+#define SERIAL_BITS_DEFAULT SERIAL_8N1
+
+#define MQTT_CLIENT_DEFAULT "e22900t22u-mqtt"
+#define MQTT_SERVER_DEFAULT "mqtt://localhost"
+#define MQTT_TOPIC_DEFAULT "e22900t22u"
+
+#define INTERVAL_STAT_DEFAULT 5 * 60
+#define INTERVAL_RSSI_DEFAULT 1 * 60
 
 #include "include/config_linux.h"
 
@@ -124,10 +135,6 @@ void config_populate_e22900t22u(e22900t22_config_t *config) {
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-#define MQTT_CLIENT_DEFAULT "e22900t22u-mqtt"
-#define MQTT_SERVER_DEFAULT "mqtt://localhost"
-#define MQTT_TOPIC_DEFAULT "e22900t22u"
-
 #define MQTT_CONNECT_TIMEOUT 60
 #define MQTT_PUBLISH_QOS 0
 #define MQTT_PUBLISH_RETAIN false
@@ -137,65 +144,28 @@ void config_populate_e22900t22u(e22900t22_config_t *config) {
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-#define INTERVAL_STAT_DEFAULT 5 * 60
-#define INTERVAL_RSSI_DEFAULT 1 * 60
-
-volatile bool is_active = true;
-
-bool packet_is_reasonable_json(const unsigned char *packet, const int length) {
-    if (length < 2)
-        return false;
-    if (packet[0] != '{' || packet[length - 1] != '}')
-        return false;
-    for (int index = 0; index < length; index++)
-        if (!isprint(packet[index]))
-            return false;
-    return true;
-}
-
 bool capture_rssi_packet = false, capture_rssi_channel = false;
 unsigned long stat_channel_rssi_cnt = 0, stat_packet_rssi_cnt = 0;
 unsigned char stat_channel_rssi_ema, stat_packet_rssi_ema;
 unsigned long stat_packets_okay = 0, stat_packets_drop = 0;
-int interval_stat = 0, interval_rssi = 0;
-time_t interval_stat_last = 0, interval_rssi_last = 0;
+time_t interval_stat = 0, interval_stat_last = 0;
+time_t interval_rssi = 0, interval_rssi_last = 0;
 
-int interval_passed(int interval, time_t *last) {
-    time_t now = time(NULL);
-    if (*last == 0) {
-        *last = now;
-        return 0;
-    }
-    if ((now - *last) > interval) {
-        const int diff = now - *last;
-        *last = now;
-        return diff;
-    }
-    return 0;
-}
-
-#define EMA_ALPHA 0.2f
-
-void ema_update(unsigned char value, unsigned char *value_ema, unsigned long *value_cnt) {
-    *value_ema =
-        (*value_cnt)++ == 0 ? value : (unsigned char)((EMA_ALPHA * (float)value) + ((1.0f - EMA_ALPHA) * (*value_ema)));
-}
-
-void read_and_send(const char *mqtt_topic) {
+void read_and_send(volatile bool *running, const char *mqtt_topic) {
 
     const int max_packet_size = E22900T22_PACKET_MAXSIZE + 1; // +1 for RSSI
     unsigned char packet_buffer[max_packet_size];
     int packet_size;
 
-    printf("read-and-publish (topic='%s', stat=%ds, rssi=%ds [packets=%c, channel=%c])\n", mqtt_topic, interval_stat,
+    printf("read-and-publish (topic='%s', stat=%lds, rssi=%lds [packets=%c, channel=%c])\n", mqtt_topic, interval_stat,
            interval_rssi, capture_rssi_packet ? 'y' : 'n', capture_rssi_channel ? 'y' : 'n');
 
-    while (is_active) {
+    while (*running) {
 
         unsigned char packet_rssi = 0, channel_rssi = 0;
 
-        if (device_packet_read(packet_buffer, config.packet_maxsize + 1, &packet_size, &packet_rssi) && is_active) {
-            if (!packet_is_reasonable_json(packet_buffer, packet_size)) {
+        if (device_packet_read(packet_buffer, config.packet_maxsize + 1, &packet_size, &packet_rssi) && *running) {
+            if (!is_reasonable_json(packet_buffer, packet_size)) {
                 fprintf(stderr, "read-and-publish: discarding malformed packet (size=%d)\n", packet_size);
                 stat_packets_drop++;
             } else {
@@ -208,13 +178,13 @@ void read_and_send(const char *mqtt_topic) {
                 device_packet_display(packet_buffer, packet_size, packet_rssi);
         }
 
-        if (is_active && capture_rssi_channel && interval_passed(interval_rssi, &interval_rssi_last)) {
-            if (device_channel_rssi_read(&channel_rssi) && is_active)
+        if (*running && capture_rssi_channel && intervalable(interval_rssi, &interval_rssi_last)) {
+            if (device_channel_rssi_read(&channel_rssi) && *running)
                 ema_update(channel_rssi, &stat_channel_rssi_ema, &stat_channel_rssi_cnt);
         }
 
         int period_stat;
-        if (is_active && (period_stat = interval_passed(interval_stat, &interval_stat_last))) {
+        if (*running && (period_stat = intervalable(interval_stat, &interval_stat_last))) {
             printf("packets-okay=%ld (%.2f/min), packets-drop=%ld (%.2f/min)", stat_packets_okay,
                    ((float)stat_packets_okay / ((float)period_stat / 60.0f)), stat_packets_drop,
                    ((float)stat_packets_drop / ((float)period_stat / 60.0f)));
@@ -260,14 +230,16 @@ bool config_setup(const int argc, const char *argv[]) {
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-void signal_handler(int sig __attribute__((unused))) {
-    if (is_active) {
+volatile bool running = true;
+
+void signal_handler(const int sig __attribute__((unused))) {
+    if (running) {
         printf("stopping\n");
-        is_active = false;
+        running = false;
     }
 }
 
-int main(int argc, const char *argv[]) {
+int main(const int argc, const char *argv[]) {
 
     printf("starting\n");
 
@@ -278,31 +250,33 @@ int main(int argc, const char *argv[]) {
     if (!config_setup(argc, argv))
         return EXIT_FAILURE;
 
-    if (!mqtt_begin(mqtt_server, mqtt_client))
-        return EXIT_FAILURE;
-
-    if (!serial_connect(&serial_config)) {
+    if (!serial_begin(&serial_config) || !serial_connect()) {
         fprintf(stderr, "device: failed to connect (port=%s, rate=%d, bits=%s)\n", serial_config.port,
                 serial_config.rate, serial_bits_str(serial_config.bits));
-        return false;
+        return EXIT_FAILURE;
     }
-
     if (!device_connect(E22900T22_MODULE_USB, &e22900t22u_config)) {
-        serial_disconnect();
+        serial_end();
         return EXIT_FAILURE;
     }
     printf("device: connected (port=%s, rate=%d, bits=%s)\n", serial_config.port, serial_config.rate,
            serial_bits_str(serial_config.bits));
     if (!(device_mode_config() && device_info_read() && device_config_read_and_update() && device_mode_transfer())) {
         device_disconnect();
-        serial_disconnect();
+        serial_end();
         return EXIT_FAILURE;
     }
 
-    read_and_send(mqtt_topic);
+    if (!mqtt_begin(mqtt_server, mqtt_client)) {
+        device_disconnect();
+        serial_end();
+        return EXIT_FAILURE;
+    }
+
+    read_and_send(&running, mqtt_topic);
 
     device_disconnect();
-    serial_disconnect();
+    serial_end();
     mqtt_end();
 
     return EXIT_SUCCESS;
