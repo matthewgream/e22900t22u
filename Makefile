@@ -8,7 +8,7 @@ HOSTNAME = $(shell hostname)
 
 ##
 
-all: $(TARGET)tomqtt
+all: $(TARGET) $(TARGET)tomqtt
 
 $(TARGET): $(TARGET).c $(SOURCES)
 	$(CC) $(CFLAGS) -o $(TARGET) $(TARGET).c $(LDFLAGS)
