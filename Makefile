@@ -3,7 +3,7 @@ CC = gcc
 CFLAGS = -O6 -Wall -Wextra -Wpedantic
 LDFLAGS =
 TARGET = e22900t22u
-SOURCES=include/serial_linux.h include/config_linux.h include/mqtt_linux.h include/e22xxxtxx.h
+SOURCES=include/serial_linux.h include/config_linux.h include/mqtt_linux.h include/util_linux.h include/e22xxxtxx.h
 HOSTNAME = $(shell hostname)
 
 ##
