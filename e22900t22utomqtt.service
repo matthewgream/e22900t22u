@@ -2,10 +2,12 @@
 Description=EBYTE E22900T22U to MQTT Service
 Wants=network-online.target
 After=network-online.target
+After=dev-e22900t22u.device
+Requires=dev-e22900t22u.device
 
 [Service]
 Type=simple
-ExecStart=/opt/e22900t22utomqtt/e22900t22utomqtt --config /opt/e22900t22utomqtt/e22900t22utomqtt.cfg
+ExecStart=/opt/e22900t22u/e22900t22utomqtt --config /opt/e22900t22u/e22900t22utomqtt.cfg
 TimeoutStopSec=15s
 KillMode=mixed
 Restart=on-failure

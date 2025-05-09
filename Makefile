@@ -36,12 +36,14 @@ define install_systemd_service
 	systemctl enable $(1)
 	systemctl start $(1) || echo "Warning: Failed to start $(1)"
 endef
-install_systemd_service: $(TARGET).service
-	$(call install_systemd_service,$(TARGET),$(TARGET))
+install_systemd_service: $(TARGET)tomqtt.service
+	$(call install_systemd_service,$(TARGET)tomqtt,$(TARGET)tomqtt)
 install_udev_rules: 90-$(TARGET).rules
 	cp 90-$(TARGET).rules $(UDEVRULES_DIR)
 	udevadm control --reload-rules
 	udevadm trigger
 install: install_udev_rules install_systemd_service
+restart:
+	systemctl restart $(TARGET)tomqtt
 .PHONY: install install_systemd_service install_udev_rules
 
