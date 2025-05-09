@@ -290,6 +290,10 @@ bool device_mode_switch_impl_software(const device_mode_t mode) {
     unsigned char buffer[64];
     const int length = command_length - 1;
     const int read_len = device_cmd_recv_response(buffer, length, config.read_timeout_command);
+    if (read_len == 3 && (buffer[0] == 0xFF && buffer[1] == 0xFF && buffer[2] == 0xFF)) {
+        PRINTF_INFO("device: %$s: already appears to be in required mode, will accept\n", name);
+        return true;
+    }
     if (read_len < length) {
         PRINTF_ERROR("device: %s: failed, received %d bytes, expected %d bytes\n", name, read_len, length);
         return false;
