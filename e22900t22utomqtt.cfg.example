@@ -1,4 +1,4 @@
-mqtt-client=sensor-icedepth
+mqtt-client=e22900t22utomqtt
 mqtt-server=mqtt://localhost
 mqtt-topic=sensors/icedepth
 address=0x0008

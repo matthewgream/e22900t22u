@@ -67,7 +67,7 @@ void __sleep_ms(const unsigned long ms) { usleep(ms * 1000); }
 #define SERIAL_RATE_DEFAULT 9600
 #define SERIAL_BITS_DEFAULT SERIAL_8N1
 
-#define MQTT_CLIENT_DEFAULT "e22900t22u-mqtt"
+#define MQTT_CLIENT_DEFAULT "e22900t22utomqtt"
 #define MQTT_SERVER_DEFAULT "mqtt://localhost"
 #define MQTT_TOPIC_DEFAULT "e22900t22u"
 
