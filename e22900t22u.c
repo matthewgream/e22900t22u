@@ -86,6 +86,7 @@ void signal_handler(int sig __attribute__((unused))) {
 
 int main(int argc __attribute__((unused)), char *argv[] __attribute__((unused))) {
 
+    setbuf(stdout, NULL);
     printf("starting\n");
 
     signal(SIGINT, signal_handler);

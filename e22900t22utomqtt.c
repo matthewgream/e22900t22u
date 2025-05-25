@@ -83,7 +83,6 @@ const struct option config_options [] = {
     {"config",                required_argument, 0, 0},
     {"mqtt-client",           required_argument, 0, 0},
     {"mqtt-server",           required_argument, 0, 0},
-    {"mqtt-topic",            required_argument, 0, 0},
     {"port",                  required_argument, 0, 0},
     {"rate",                  required_argument, 0, 0},
     {"bits",                  required_argument, 0, 0},
@@ -180,6 +179,96 @@ const char *data_type_tostring(const data_type_t data_type) {
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
+#define MAX_TOPIC_ROUTES 16
+
+typedef struct {
+    const char *key;
+    const char *value;
+    const char *topic;
+} topic_route_t;
+
+topic_route_t topic_routes[MAX_TOPIC_ROUTES];
+const char *topic_route_default = NULL;
+size_t topic_route_count = 0;
+
+void config_populate_topic_routes(const char *topic_default) {
+    topic_route_default = topic_default;
+    topic_route_count = 0;
+    for (int i = 0; i < MAX_TOPIC_ROUTES; i++) {
+        char key_name[64];
+        snprintf(key_name, sizeof(key_name), "topic-route.%d.key", i);
+        const char *key = config_get_string(key_name, NULL);
+        if (!key)
+            continue;
+
+        char value_name[64], topic_name[64];
+        snprintf(value_name, sizeof(value_name), "topic-route.%d.value", i);
+        snprintf(topic_name, sizeof(topic_name), "topic-route.%d.topic", i);
+        const char *value = config_get_string(value_name, NULL);
+        const char *topic = config_get_string(topic_name, NULL);
+        if (value && topic) {
+            topic_routes[topic_route_count].key = key;
+            topic_routes[topic_route_count].value = value;
+            topic_routes[topic_route_count].topic = topic;
+            printf("config: topic-route[%d]: key='%s', value='%s', topic='%s'\n", (int)topic_route_count, key, value,
+                   topic);
+            topic_route_count++;
+        }
+    }
+    if (topic_route_count == 0)
+        printf("config: no topic routes configured, using default topic\n");
+}
+bool route_topic_match_json(const unsigned char *packet, const int packet_size, const char *key, const char *value) {
+    char search_pattern[64 + 64 + 64];
+    int pattern_len = snprintf(search_pattern, sizeof(search_pattern), "\"%s\":\"%s\"", key, value);
+    if (pattern_len >= packet_size)
+        return false;
+    const unsigned char first_char = search_pattern[0];
+    for (int i = 0; i <= packet_size - pattern_len; i++)
+        if (packet[i] == first_char && memcmp(packet + i, search_pattern, pattern_len) == 0)
+            return true;
+    return false;
+}
+bool route_topic_match_binary(const unsigned char *packet, const int packet_size, const char *key, const char *value) {
+    const int offset = atoi(key);
+    if (offset < 0 || offset >= packet_size)
+        return false;
+    if (strlen(value) != 2)
+        return false;
+    unsigned char expected_value = 0;
+    for (int i = 0; i < 2; i++) {
+        char c = value[i];
+        unsigned char digit;
+        if (c >= '0' && c <= '9')
+            digit = c - '0';
+        else if (c >= 'a' && c <= 'f')
+            digit = c - 'a' + 10;
+        else if (c >= 'A' && c <= 'F')
+            digit = c - 'A' + 10;
+        else
+            return false; // Invalid hex character
+        expected_value = (expected_value << 4) | digit;
+    }
+    return packet[offset] == expected_value;
+}
+const char *route_topic_select(const unsigned char *packet, const int packet_size, const data_type_t data_type) {
+    if (topic_route_count == 0)
+        return topic_route_default;
+    for (size_t i = 0; i < topic_route_count; i++) {
+        bool match = false;
+        if (data_type == DATA_TYPE_JSON)
+            match = route_topic_match_json(packet, packet_size, topic_routes[i].key, topic_routes[i].value);
+        else
+            match = route_topic_match_binary(packet, packet_size, topic_routes[i].key, topic_routes[i].value);
+        if (match)
+            return topic_routes[i].topic;
+    }
+    return NULL;
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------------------------------------------------------------------
+
 bool capture_rssi_packet = false, capture_rssi_channel = false;
 unsigned long stat_channel_rssi_cnt = 0, stat_packet_rssi_cnt = 0;
 unsigned char stat_channel_rssi_ema, stat_packet_rssi_ema;
@@ -188,13 +277,13 @@ time_t interval_stat = 0, interval_stat_last = 0;
 time_t interval_rssi = 0, interval_rssi_last = 0;
 #define PACKET_BUFFER_MAX ((E22900T22_PACKET_MAXSIZE * 2) + 4) // has +1 for RSSI; adds 2 for '["' <HEX> '"]'
 
-void read_and_send(volatile bool *running, const data_type_t data_type, const char *mqtt_topic) {
+void read_and_send(volatile bool *running, const data_type_t data_type) {
 
     unsigned char packet_buffer[PACKET_BUFFER_MAX];
     int packet_size;
 
-    printf("read-and-publish (topic='%s', stat=%lds, rssi=%lds [packets=%c, channel=%c], data-type=%s)\n", mqtt_topic,
-           interval_stat, interval_rssi, capture_rssi_packet ? 'y' : 'n', capture_rssi_channel ? 'y' : 'n',
+    printf("read-and-publish (stat=%lds, rssi=%lds [packets=%c, channel=%c], data-type=%s)\n", interval_stat,
+           interval_rssi, capture_rssi_packet ? 'y' : 'n', capture_rssi_channel ? 'y' : 'n',
            data_type_tostring(data_type));
 
     while (*running) {
@@ -239,10 +328,22 @@ void read_and_send(volatile bool *running, const data_type_t data_type, const ch
                 break;
             }
             if (deliver) {
-                if (capture_rssi_packet)
-                    ema_update(packet_rssi, &stat_packet_rssi_ema, &stat_packet_rssi_cnt);
-                mqtt_send(mqtt_topic, (const char *)packet_buffer, packet_size);
-                stat_packets_okay++;
+                const char *topic = route_topic_select(packet_buffer, packet_size, data_type);
+                if (topic) {
+                    if (capture_rssi_packet)
+                        ema_update(packet_rssi, &stat_packet_rssi_ema, &stat_packet_rssi_cnt);
+                    if (mqtt_send(topic, (const char *)packet_buffer, packet_size))
+                        stat_packets_okay++;
+                    else {
+                        fprintf(stderr, "read-and-publish: mqtt send failed, discarding packet (size=%d)\n",
+                                packet_size);
+                        stat_packets_drop++;
+                    }
+                } else {
+                    fprintf(stderr, "read-and-publish: no topic route match, discarding packet (size=%d)\n",
+                            packet_size);
+                    stat_packets_drop++;
+                }
             }
             if (debug_readandsend)
                 device_packet_display(packet_buffer, packet_size, packet_rssi);
@@ -273,7 +374,7 @@ void read_and_send(volatile bool *running, const data_type_t data_type, const ch
 
 serial_config_t serial_config;
 e22900t22_config_t e22900t22u_config;
-const char *mqtt_client, *mqtt_server, *mqtt_topic;
+const char *mqtt_client, *mqtt_server;
 data_type_t data_type;
 
 bool config_setup(const int argc, const char *argv[]) {
@@ -283,9 +384,9 @@ bool config_setup(const int argc, const char *argv[]) {
 
     config_populate_serial(&serial_config);
     config_populate_e22900t22u(&e22900t22u_config);
+    config_populate_topic_routes(MQTT_TOPIC_DEFAULT);
     mqtt_client = config_get_string("mqtt-client", MQTT_CLIENT_DEFAULT);
     mqtt_server = config_get_string("mqtt-server", MQTT_SERVER_DEFAULT);
-    mqtt_topic = config_get_string("mqtt-topic", MQTT_TOPIC_DEFAULT);
 
     capture_rssi_packet = config_get_bool("rssi-packet", CONFIG_RSSI_PACKET_DEFAULT);
     capture_rssi_channel = config_get_bool("rssi-channel", CONFIG_RSSI_CHANNEL_DEFAULT);
@@ -314,9 +415,9 @@ void signal_handler(const int sig __attribute__((unused))) {
 
 int main(const int argc, const char *argv[]) {
 
+    setbuf(stdout, NULL);
     printf("starting\n");
 
-    setbuf(stdout, NULL);
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
 
@@ -340,13 +441,13 @@ int main(const int argc, const char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    if (!mqtt_begin(mqtt_server, mqtt_client)) {
+    if (!mqtt_begin(mqtt_server, mqtt_client, false)) {
         device_disconnect();
         serial_end();
         return EXIT_FAILURE;
     }
 
-    read_and_send(&running, data_type, mqtt_topic);
+    read_and_send(&running, data_type);
 
     device_disconnect();
     serial_end();
