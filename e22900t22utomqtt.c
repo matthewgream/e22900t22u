@@ -74,6 +74,8 @@ void __sleep_ms(const unsigned long ms) { usleep(ms * 1000); }
 #define INTERVAL_STAT_DEFAULT 5 * 60
 #define INTERVAL_RSSI_DEFAULT 1 * 60
 
+#define DATA_TYPE_TYPE_DEFAULT "json-convert"
+
 #include "include/config_linux.h"
 
 // clang-format off
@@ -96,6 +98,7 @@ const struct option config_options [] = {
     {"read-timeout-packet",   required_argument, 0, 0},
     {"interval-stat",         required_argument, 0, 0},
     {"interval-rssi",         required_argument, 0, 0},
+    {"data-type",             required_argument, 0, 0},
     {"debug-e22900t22u",      required_argument, 0, 0},
     {"debug",                 required_argument, 0, 0},
     {0, 0, 0, 0}
@@ -145,10 +148,37 @@ void config_populate_e22900t22u(e22900t22_config_t *config) {
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
 typedef enum {
-    ACCEPT_JSON = 0,
-    ACCEPT_NON_JSON = 1,
-    ACCEPT_JSON_CONVERT_NON_JSON = 2,
-} accept_type_t;
+    DATA_TYPE_JSON = 0,
+    DATA_TYPE_ANY = 1,
+    DATA_TYPE_JSON_CONVERT = 2,
+} data_type_t;
+
+data_type_t data_type_parse(const char *data_type_str) {
+    if (strcmp(data_type_str, "json") == 0)
+        return DATA_TYPE_JSON;
+    else if (strcmp(data_type_str, "json-convert") == 0)
+        return DATA_TYPE_JSON_CONVERT;
+    else if (strcmp(data_type_str, "any") == 0)
+        return DATA_TYPE_ANY;
+    else {
+        fprintf(stderr, "warning: unknown data-type '%s', using default 'json-convert'\n", data_type_str);
+        return DATA_TYPE_JSON_CONVERT;
+    }
+}
+const char *data_type_tostring(const data_type_t data_type) {
+    switch (data_type) {
+    case DATA_TYPE_JSON:
+        return "json";
+    case DATA_TYPE_JSON_CONVERT:
+        return "json-convert";
+    case DATA_TYPE_ANY:
+    default:
+        return "any";
+    }
+}
+
+// -----------------------------------------------------------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------------------------------------------------------------------
 
 bool capture_rssi_packet = false, capture_rssi_channel = false;
 unsigned long stat_channel_rssi_cnt = 0, stat_packet_rssi_cnt = 0;
@@ -158,34 +188,33 @@ time_t interval_stat = 0, interval_stat_last = 0;
 time_t interval_rssi = 0, interval_rssi_last = 0;
 #define PACKET_BUFFER_MAX ((E22900T22_PACKET_MAXSIZE * 2) + 4) // has +1 for RSSI; adds 2 for '["' <HEX> '"]'
 
-void read_and_send(volatile bool *running, const accept_type_t accept_type, const char *mqtt_topic) {
+void read_and_send(volatile bool *running, const data_type_t data_type, const char *mqtt_topic) {
 
     unsigned char packet_buffer[PACKET_BUFFER_MAX];
     int packet_size;
 
-    printf("read-and-publish (topic='%s', stat=%lds, rssi=%lds [packets=%c, channel=%c])\n", mqtt_topic, interval_stat,
-           interval_rssi, capture_rssi_packet ? 'y' : 'n', capture_rssi_channel ? 'y' : 'n');
+    printf("read-and-publish (topic='%s', stat=%lds, rssi=%lds [packets=%c, channel=%c], data-type=%s)\n", mqtt_topic,
+           interval_stat, interval_rssi, capture_rssi_packet ? 'y' : 'n', capture_rssi_channel ? 'y' : 'n',
+           data_type_tostring(data_type));
 
     while (*running) {
 
         unsigned char packet_rssi = 0, channel_rssi = 0;
 
         if (device_packet_read(packet_buffer, config.packet_maxsize + 1, &packet_size, &packet_rssi) && *running) {
-
-            bool deliver;
-            switch (accept_type) {
-            case ACCEPT_JSON:
+            bool deliver = false;
+            switch (data_type) {
+            case DATA_TYPE_JSON:
                 if (!(deliver = is_reasonable_json(packet_buffer, packet_size))) {
                     fprintf(stderr, "read-and-publish: discarding non-json packet (size=%d)\n", packet_size);
                     stat_packets_drop++;
                 }
                 break;
-            case ACCEPT_JSON_CONVERT_NON_JSON:
+            case DATA_TYPE_JSON_CONVERT:
                 if (!is_reasonable_json(packet_buffer, packet_size)) {
                     const int json_size = 4 + (packet_size * 2);
                     if (json_size >= PACKET_BUFFER_MAX) {
-                        fprintf(stderr, "read-and-publish: packet too large for hex conversion (size=%d)\n",
-                                packet_size);
+                        fprintf(stderr, "read-and-publish: packet too large for conversion (size=%d)\n", packet_size);
                         deliver = false;
                         stat_packets_drop++;
                         break;
@@ -203,8 +232,9 @@ void read_and_send(volatile bool *running, const accept_type_t accept_type, cons
                     packet_buffer[2 + (packet_size * 2) + 1] = ']';
                     packet_size = json_size;
                 }
-            case ACCEPT_NON_JSON:
-            default:
+                deliver = true;
+                break;
+            case DATA_TYPE_ANY:
                 deliver = true;
                 break;
             }
@@ -244,6 +274,7 @@ void read_and_send(volatile bool *running, const accept_type_t accept_type, cons
 serial_config_t serial_config;
 e22900t22_config_t e22900t22u_config;
 const char *mqtt_client, *mqtt_server, *mqtt_topic;
+data_type_t data_type;
 
 bool config_setup(const int argc, const char *argv[]) {
 
@@ -260,6 +291,8 @@ bool config_setup(const int argc, const char *argv[]) {
     capture_rssi_channel = config_get_bool("rssi-channel", CONFIG_RSSI_CHANNEL_DEFAULT);
     interval_stat = config_get_integer("interval-stat", INTERVAL_STAT_DEFAULT);
     interval_rssi = config_get_integer("interval-rssi", INTERVAL_RSSI_DEFAULT);
+
+    data_type = data_type_parse(config_get_string("data-type", DATA_TYPE_TYPE_DEFAULT));
 
     debug_e22900t22u = config_get_integer("debug-e22900t22u", false);
     debug_readandsend = config_get_bool("debug", false);
@@ -313,7 +346,7 @@ int main(const int argc, const char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    read_and_send(&running, ACCEPT_JSON_CONVERT_NON_JSON, mqtt_topic);
+    read_and_send(&running, data_type, mqtt_topic);
 
     device_disconnect();
     serial_end();
