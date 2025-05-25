@@ -144,17 +144,23 @@ void config_populate_e22900t22u(e22900t22_config_t *config) {
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
+typedef enum {
+    ACCEPT_JSON = 0,
+    ACCEPT_NON_JSON = 1,
+    ACCEPT_JSON_CONVERT_NON_JSON = 2,
+} accept_type_t;
+
 bool capture_rssi_packet = false, capture_rssi_channel = false;
 unsigned long stat_channel_rssi_cnt = 0, stat_packet_rssi_cnt = 0;
 unsigned char stat_channel_rssi_ema, stat_packet_rssi_ema;
 unsigned long stat_packets_okay = 0, stat_packets_drop = 0;
 time_t interval_stat = 0, interval_stat_last = 0;
 time_t interval_rssi = 0, interval_rssi_last = 0;
+#define PACKET_BUFFER_MAX ((E22900T22_PACKET_MAXSIZE * 2) + 4) // has +1 for RSSI; adds 2 for '["' <HEX> '"]'
 
-void read_and_send(volatile bool *running, const char *mqtt_topic) {
+void read_and_send(volatile bool *running, const accept_type_t accept_type, const char *mqtt_topic) {
 
-    const int max_packet_size = E22900T22_PACKET_MAXSIZE + 1; // +1 for RSSI
-    unsigned char packet_buffer[max_packet_size];
+    unsigned char packet_buffer[PACKET_BUFFER_MAX];
     int packet_size;
 
     printf("read-and-publish (topic='%s', stat=%lds, rssi=%lds [packets=%c, channel=%c])\n", mqtt_topic, interval_stat,
@@ -165,10 +171,44 @@ void read_and_send(volatile bool *running, const char *mqtt_topic) {
         unsigned char packet_rssi = 0, channel_rssi = 0;
 
         if (device_packet_read(packet_buffer, config.packet_maxsize + 1, &packet_size, &packet_rssi) && *running) {
-            if (!is_reasonable_json(packet_buffer, packet_size)) {
-                fprintf(stderr, "read-and-publish: discarding malformed packet (size=%d)\n", packet_size);
-                stat_packets_drop++;
-            } else {
+
+            bool deliver;
+            switch (accept_type) {
+            case ACCEPT_JSON:
+                if (!(deliver = is_reasonable_json(packet_buffer, packet_size))) {
+                    fprintf(stderr, "read-and-publish: discarding non-json packet (size=%d)\n", packet_size);
+                    stat_packets_drop++;
+                }
+                break;
+            case ACCEPT_JSON_CONVERT_NON_JSON:
+                if (!is_reasonable_json(packet_buffer, packet_size)) {
+                    const int json_size = 4 + (packet_size * 2);
+                    if (json_size >= PACKET_BUFFER_MAX) {
+                        fprintf(stderr, "read-and-publish: packet too large for hex conversion (size=%d)\n",
+                                packet_size);
+                        deliver = false;
+                        stat_packets_drop++;
+                        break;
+                    }
+                    int data_offset = PACKET_BUFFER_MAX - packet_size;
+                    memmove(packet_buffer + data_offset, packet_buffer, packet_size);
+                    packet_buffer[0] = '[';
+                    packet_buffer[1] = '"';
+                    for (int i = 0; i < packet_size; i++) {
+                        const unsigned char byte = packet_buffer[data_offset + i];
+                        packet_buffer[2 + (i * 2)] = "0123456789abcdef"[byte >> 4];
+                        packet_buffer[2 + (i * 2) + 1] = "0123456789abcdef"[byte & 0x0f];
+                    }
+                    packet_buffer[2 + (packet_size * 2)] = '"';
+                    packet_buffer[2 + (packet_size * 2) + 1] = ']';
+                    packet_size = json_size;
+                }
+            case ACCEPT_NON_JSON:
+            default:
+                deliver = true;
+                break;
+            }
+            if (deliver) {
                 if (capture_rssi_packet)
                     ema_update(packet_rssi, &stat_packet_rssi_ema, &stat_packet_rssi_cnt);
                 mqtt_send(mqtt_topic, (const char *)packet_buffer, packet_size);
@@ -273,7 +313,7 @@ int main(const int argc, const char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    read_and_send(&running, mqtt_topic);
+    read_and_send(&running, ACCEPT_JSON_CONVERT_NON_JSON, mqtt_topic);
 
     device_disconnect();
     serial_end();

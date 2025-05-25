@@ -62,7 +62,7 @@ void hexdump(const unsigned char *data, const int size, const char *prefix) {
 bool is_reasonable_json(const unsigned char *packet, const int length) {
     if (length < 2)
         return false;
-    if (packet[0] != '{' || packet[length - 1] != '}')
+    if (!(packet[0] == '{' || packet[0] == '[') || !(packet[length - 1] == '}' || packet[length - 1] == ']'))
         return false;
     for (int index = 0; index < length; index++)
         if (!isprint(packet[index]))
