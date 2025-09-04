@@ -3,7 +3,7 @@ Description=EBYTE E22900T22U to MQTT Service
 Wants=network-online.target
 After=network-online.target
 After=dev-e22900t22u.device
-Requires=dev-e22900t22u.device
+BindsTo=dev-e22900t22u.device
 
 [Service]
 Type=simple
@@ -15,3 +15,4 @@ RestartSec=5s
 
 [Install]
 WantedBy=multi-user.target
+WantedBy=dev-e22900t22u.device
