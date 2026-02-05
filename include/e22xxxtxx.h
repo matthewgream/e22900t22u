@@ -11,6 +11,10 @@
 #error "no E22900T22_SUPPORT_MODULE_DIP or E22900T22_SUPPORT_MODULE_USB defined"
 #endif
 
+#if defined(E22900T22_SUPPORT_NO_TRANSMIT) && defined(E22900T22_SUPPORT_NO_RECEIVE)
+#error "both E22900T22_SUPPORT_NO_TRANSMIT and E22900T22_SUPPORT_NO_RECEIVE defined"
+#endif
+
 #define E22900T22_PACKET_MAXSIZE 240
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
