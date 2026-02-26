@@ -528,16 +528,15 @@ static bool update_configuration(uint8_t *config_device) {
 #endif
     const uint8_t transmit_power = config_device[4] & 0x03;
     if (transmit_power != _e22900txx_config.transmit_power) {
-        PRINTF_INFO("device: update_configuration: transmit_power: %" PRIu8 " (%s) --> %" PRIu8 " (%s)\n", transmit_power, get_transmit_power(transmit_power), _e22900txx_config.transmit_power,
-                    get_transmit_power(_e22900txx_config.transmit_power));
-        config_device[4] = (config_device[4] & (uint8_t)~0x03) | (_e22900txx_config.transmit_power & 0x03);
+        const uint8_t transmit_power_b = _e22900txx_config.transmit_power & 0x03;
+        PRINTF_INFO("device: update_configuration: transmit-power: %" PRIu8 " (%s) --> %" PRIu8 " (%s)\n", transmit_power, get_transmit_power(transmit_power), transmit_power_b, get_transmit_power(transmit_power_b));
+        config_device[4] = (config_device[4] ^ transmit_power) | transmit_power_b;
     }
 
     const uint8_t channel = config_device[5];
     if (channel != _e22900txx_config.channel) {
-        const uint32_t frequency1000_a = get_frequency1000(channel), frequency1000_b = get_frequency1000(_e22900txx_config.channel);
-        PRINTF_INFO("device: update_configuration: channel: %d (%" PRIu32 ".%03" PRIu32 "MHz) --> %d (%" PRIu32 ".%03" PRIu32 "MHz)\n", channel, frequency1000_a / 1000, frequency1000_a % 1000, _e22900txx_config.channel,
-                    frequency1000_b / 1000, frequency1000_b % 1000);
+        const uint32_t freq_a = get_frequency1000(channel), freq_b = get_frequency1000(_e22900txx_config.channel);
+        PRINTF_INFO("device: update_configuration: channel: %d (%" PRIu32 ".%03" PRIu32 "MHz) --> %d (%" PRIu32 ".%03" PRIu32 "MHz)\n", channel, freq_a / 1000, freq_a % 1000, _e22900txx_config.channel, freq_b / 1000, freq_b % 1000);
         config_device[5] = _e22900txx_config.channel;
     }
 
@@ -547,8 +546,9 @@ static bool update_configuration(uint8_t *config_device) {
     __update_config_bool("wor-enabled", &config_device[6], 0x08, _e22900txx_config.wor_enabled);
     const uint16_t wor_cycle = (uint16_t)E22900T22_CONFIG_WOR_CYCLE_MIN + (uint16_t)((config_device[6] & 0x07) * E22900T22_CONFIG_WOR_CYCLE_INCREMENT);
     if (wor_cycle != _e22900txx_config.wor_cycle) {
-        PRINTF_INFO("device: update_configuration: wor_cycle: %" PRIu16 "ms --> %" PRIu16 "ms\n", wor_cycle, _e22900txx_config.wor_cycle);
-        config_device[6] = (config_device[6] & (uint8_t)~0x07) | (uint8_t)(((_e22900txx_config.wor_cycle - E22900T22_CONFIG_WOR_CYCLE_MIN) / E22900T22_CONFIG_WOR_CYCLE_INCREMENT) & 0x07);
+        const uint8_t wor_index = config_device[6] & 0x07, wor_index_b = (uint8_t)(((_e22900txx_config.wor_cycle - E22900T22_CONFIG_WOR_CYCLE_MIN) / E22900T22_CONFIG_WOR_CYCLE_INCREMENT) & 0x07);
+        PRINTF_INFO("device: update_configuration: wor-cycle: %" PRIu8 " (%" PRIu16 "ms) --> %" PRIu8 " (%" PRIu16 "ms)\n", wor_index, wor_cycle, wor_index_b, _e22900txx_config.wor_cycle);
+        config_device[6] = (config_device[6] ^ wor_index) | wor_index_b;
     }
     const uint16_t crypt = (uint16_t)config_device[7] << 8 | config_device[8];
     if (crypt != _e22900txx_config.crypt) {
@@ -579,6 +579,8 @@ static bool device_config(const e22900t22_config_t *config_device) {
         _e22900txx_config.packet_maxrate = E22900T22_CONFIG_PACKET_MAXRATE_DEFAULT;
     else if (_e22900txx_config.packet_maxrate > E22900T22_PACKET_MAXRATE_62500)
         return false;
+    if (!_e22900txx_config.wor_cycle)
+        _e22900txx_config.wor_cycle = E22900T22_CONFIG_WOR_CYCLE_DEFAULT;
 #ifdef E22900T22_SUPPORT_MODULE_DIP
     if (_e22900txx_module == E22900T22_MODULE_DIP && (_e22900txx_config.set_pin_mx == NULL || _e22900txx_config.get_pin_aux == NULL))
         return false;
