@@ -97,7 +97,7 @@ int main(int argc __attribute__((unused)), char *argv[] __attribute__((unused)))
 
     if (!serial_begin(&serial_config) || !serial_connect()) {
         fprintf(stderr, "device: failed to connect (port=%s, rate=%d, bits=%s)\n", serial_config.port, serial_config.rate, serial_bits_str(serial_config.bits));
-        return false;
+        return EXIT_FAILURE;
     }
 
     if (!device_connect(E22900T22_MODULE_USB, &e22900t22u_config)) {

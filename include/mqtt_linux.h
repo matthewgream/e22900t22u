@@ -10,6 +10,7 @@
 struct mosquitto *mosq = NULL;
 void (*mqtt_message_callback)(const char *, const unsigned char *, const int) = NULL;
 bool mqtt_synchronous = false;
+bool mqtt_connected = false;
 
 bool mqtt_send(const char *topic, const char *message, const int length) {
     if (!mosq)
@@ -80,7 +81,18 @@ void mqtt_connect_callback(struct mosquitto *m, void *o __attribute__((unused)),
         fprintf(stderr, "mqtt: connect failed: %s\n", mosquitto_connack_string(r));
         return;
     }
+    mqtt_connected = true;
     printf("mqtt: connected\n");
+}
+
+void mqtt_disconnect_callback(struct mosquitto *m, void *o __attribute__((unused)), int rc) {
+    if (m != mosq)
+        return;
+    mqtt_connected = false;
+    if (rc != 0)
+        fprintf(stderr, "mqtt: disconnected unexpectedly (rc=%d)\n", rc);
+    else
+        printf("mqtt: disconnected\n");
 }
 
 void mqtt_loop(const int timeout_ms) {
@@ -106,8 +118,10 @@ bool mqtt_begin(const char *server, const char *client, const bool use_synchrono
         return false;
     }
     if (ssl)
-        mosquitto_tls_insecure_set(mosq, true); // Skip certificate validation
+        mosquitto_tls_insecure_set(mosq, true);       // Skip certificate validation
+    mosquitto_reconnect_delay_set(mosq, 1, 30, true); // 1s initial, 30s max, exponential backoff
     mosquitto_connect_callback_set(mosq, mqtt_connect_callback);
+    mosquitto_disconnect_callback_set(mosq, mqtt_disconnect_callback);
     mosquitto_message_callback_set(mosq, mqtt_message_callback_wrapper);
     int result;
     if ((result = mosquitto_connect(mosq, host, port, MQTT_CONNECT_TIMEOUT)) != MOSQ_ERR_SUCCESS) {

@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 #include <termios.h>
 #include <unistd.h>
@@ -159,18 +160,18 @@ void serial_flush(void) {
     tcflush(serial_fd, TCIOFLUSH);
 }
 
-int serial_write(const unsigned char *buffer, const int length) {
+int serial_write(const uint8_t *buffer, const int length) {
     if (serial_fd < 0)
         return -1;
     usleep(50 * 1000); // yuck
     return (int)write(serial_fd, buffer, (size_t)length);
 }
 
-bool serial_write_all(const unsigned char *buffer, const int length) {
+bool serial_write_all(const uint8_t *buffer, const int length) {
     return serial_write(buffer, length) == length;
 }
 
-int serial_read(unsigned char *buffer, const int length, const unsigned long timeout_ms) {
+int serial_read(uint8_t *buffer, const int length, const uint32_t timeout_ms) {
     if (serial_fd < 0)
         return -1;
     usleep(50 * 1000); // yuck
@@ -184,7 +185,7 @@ int serial_read(unsigned char *buffer, const int length, const unsigned long tim
     if (select_result <= 0)
         return select_result; // timeout or error
     int bytes_read = 0;
-    unsigned char byte;
+    uint8_t byte;
     bool buffer_complete = false;
     while (bytes_read < length) {
         FD_ZERO(&rdset);
