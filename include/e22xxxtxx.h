@@ -56,6 +56,15 @@ extern void __sleep_ms(const uint32_t ms);
 #define E22900T22_CONFIG_READ_TIMEOUT_PACKET_DEFAULT  5000
 #define E22900T22_CONFIG_PACKET_MAXSIZE_DEFAULT       E22900T22_PACKET_MAXSIZE_240
 #define E22900T22_CONFIG_PACKET_MAXRATE_DEFAULT       E22900T22_PACKET_MAXRATE_2400
+#define E22900T22_CONFIG_CRYPT_DEFAULT                0x0000
+#define E22900T22_CONFIG_WOR_ENABLED_DEFAULT          false
+#define E22900T22_CONFIG_WOR_CYCLE_DEFAULT            2000
+#define E22900T22_CONFIG_WOR_CYCLE_MIN                500
+#define E22900T22_CONFIG_WOR_CYCLE_MAX                4000
+#define E22900T22_CONFIG_WOR_CYCLE_INCREMENT          500
+#define E22900T22_CONFIG_TRANSMIT_POWER_DEFAULT       3
+#define E22900T22_CONFIG_TRANSMIT_POWER_MIN           0
+#define E22900T22_CONFIG_TRANSMIT_POWER_MAX           3
 
 typedef struct {
     uint16_t name;
@@ -73,6 +82,10 @@ typedef struct {
     uint8_t channel;
     uint8_t packet_maxsize;
     uint8_t packet_maxrate;
+    uint16_t crypt;
+    bool wor_enabled;
+    uint16_t wor_cycle;
+    uint8_t transmit_power;
     bool listen_before_transmit;
     bool rssi_packet, rssi_channel;
     uint32_t read_timeout_command, read_timeout_packet;
@@ -504,8 +517,21 @@ static bool update_configuration(uint8_t *config_device) {
         PRINTF_INFO("device: update_configuration: network: 0x%02" PRIX8 " --> 0x%02" PRIX8 "\n", network, _e22900txx_config.network);
         config_device[2] = _e22900txx_config.network;
     }
-    // XXX config_device[3] // packet_rate
-    // XXX config_device[4] // packet_size
+    // XXX config_device[3] // serial_port_rate (7/6/5) / serial_port_bits (4/3)
+    // XXX config_device[3] // packet_rate (2/1/0)
+    // XXX config_device[4] // packet_size (7/6)
+    __update_config_bool("rssi-channel", &config_device[4], 0x20, _e22900txx_config.rssi_channel);
+    // XXX config_device[4] // reserved (4/3)
+#ifdef E22900T22_SUPPORT_MODULE_USB
+    if (_e22900txx_module == E22900T22_MODULE_USB)
+        __update_config_bool("switch-config-serial", &config_device[4], 0x04, true);
+#endif
+    const uint8_t transmit_power = config_device[4] & 0x03;
+    if (transmit_power != _e22900txx_config.transmit_power) {
+        PRINTF_INFO("device: update_configuration: transmit_power: %" PRIu8 " (%s) --> %" PRIu8 " (%s)\n", transmit_power, get_transmit_power(transmit_power), _e22900txx_config.transmit_power,
+                    get_transmit_power(_e22900txx_config.transmit_power));
+        config_device[4] = (config_device[4] & (uint8_t)~0x03) | (_e22900txx_config.transmit_power & 0x03);
+    }
 
     const uint8_t channel = config_device[5];
     if (channel != _e22900txx_config.channel) {
@@ -515,13 +541,21 @@ static bool update_configuration(uint8_t *config_device) {
         config_device[5] = _e22900txx_config.channel;
     }
 
-    __update_config_bool("listen-before-transmit", &config_device[6], 0x10, _e22900txx_config.listen_before_transmit);
-    __update_config_bool("rssi-channel", &config_device[4], 0x20, _e22900txx_config.rssi_channel);
     __update_config_bool("rssi-packet", &config_device[6], 0x80, _e22900txx_config.rssi_packet);
-#ifdef E22900T22_SUPPORT_MODULE_USB
-    if (_e22900txx_module == E22900T22_MODULE_USB)
-        __update_config_bool("switch-config-serial", &config_device[4], 0x04, true);
-#endif
+    // XXX config_device[6] // transmission_method (0x40) / relay_function (0x20) [NOT SUPPORTED]
+    __update_config_bool("listen-before-transmit", &config_device[6], 0x10, _e22900txx_config.listen_before_transmit);
+    __update_config_bool("wor-enabled", &config_device[6], 0x08, _e22900txx_config.wor_enabled);
+    const uint16_t wor_cycle = (uint16_t)E22900T22_CONFIG_WOR_CYCLE_MIN + (uint16_t)((config_device[6] & 0x07) * E22900T22_CONFIG_WOR_CYCLE_INCREMENT);
+    if (wor_cycle != _e22900txx_config.wor_cycle) {
+        PRINTF_INFO("device: update_configuration: wor_cycle: %" PRIu16 "ms --> %" PRIu16 "ms\n", wor_cycle, _e22900txx_config.wor_cycle);
+        config_device[6] = (config_device[6] & (uint8_t)~0x07) | (uint8_t)(((_e22900txx_config.wor_cycle - E22900T22_CONFIG_WOR_CYCLE_MIN) / E22900T22_CONFIG_WOR_CYCLE_INCREMENT) & 0x07);
+    }
+    const uint16_t crypt = (uint16_t)config_device[7] << 8 | config_device[8];
+    if (crypt != _e22900txx_config.crypt) {
+        PRINTF_INFO("device: update_configuration: crypt: 0x%04" PRIX16 " --> 0x%04" PRIX16 "\n", crypt, _e22900txx_config.crypt);
+        config_device[7] = (uint8_t)(_e22900txx_config.crypt >> 8);
+        config_device[8] = (uint8_t)(_e22900txx_config.crypt & 0xFF);
+    }
 
     const bool update_required = memcmp(config_device_orig, config_device, E22900T22_DEVICE_MOD_CONF_SIZE_WRITE) != 0;
 
@@ -652,39 +686,40 @@ static void device_packet_read_and_display(volatile bool *is_active) {
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-static const char *get_uart_rate(const uint8_t value) {
+static const char *get_uart_rate(const uint8_t reg) {
     static const char *map[] = { "1200bps", "2400bps", "4800bps", "9600bps (Default)", "19200bps", "38400bps", "57600bps", "115200bps" };
-    return map[(value >> 5) & 0x07];
+    return map[(reg >> 5) & 0x07];
 }
 
-static const char *get_uart_parity(const uint8_t value) {
+static const char *get_uart_parity(const uint8_t reg) {
     static const char *map[] = { "8N1 (Default)", "8O1", "8E1", "8N1" };
-    return map[(value >> 3) & 0x03];
+    return map[(reg >> 3) & 0x03];
 }
 
-static const char *get_packet_rate(const uint8_t value) {
+static const char *get_packet_rate(const uint8_t reg) {
     static const struct __packet_rate_reg {
         const char *rates[8];
     } map[] = {
-        { { "2.4kbps", "2.4kbps", "2.4kbps (Default)", "4.8kbps", "9.6kbps", "19.2kbps", "38.4kbps", "62.5kbps" } }, // E22-400/900Txx
-        { { "2.4kbps", "2.4kbps", "2.4kbps (Default)", "2.4kbps", "4.8kbps", "9.6kbps", "15.6kbps", "15.6kbps" } }   // E22-230Txx
+        // { { "0.3kbps", "1.2kbps", "2.4kbps (Default)", "4.8kbps", "9.6kbps", "19.2kbps", "38.4kbps", "62.5kbps" } }, // E22-900T22D/900T30D
+        { { "2.4kbps", "2.4kbps", "2.4kbps (Default)", "4.8kbps", "9.6kbps", "19.2kbps", "38.4kbps", "62.5kbps" } }, // E22-400/900T22U
+        { { "2.4kbps", "2.4kbps", "2.4kbps (Default)", "2.4kbps", "4.8kbps", "9.6kbps", "15.6kbps", "15.6kbps" } }   // E22-230T22U
     };
     switch (_e22900txx_device.frequency) {
-    // case ??: return __packet_rate_map [1].rate_map [value & 0x07]; // E22-230Txx
+    // case ??: return __packet_rate_map [1].rate_map [reg & 0x07]; // E22-230Txx
     // case ??: // E22-400Txx
     case 11:
-        return map[0].rates[value & 0x07]; // E22-900Txx
+        return map[0].rates[reg & 0x07]; // E22-900Txx
     default:
         return "UNKNOWN";
     }
 }
 
-static const char *get_packet_size(const uint8_t value) {
+static const char *get_packet_size(const uint8_t reg) {
     static const char *map[] = { "240bytes (Default)", "128bytes", "64bytes", "32bytes" };
-    return map[(value >> 6) & 0x03];
+    return map[(reg >> 6) & 0x03];
 }
 
-static const char *get_transmit_power(const uint8_t value) {
+static const char *get_transmit_power(const uint8_t reg) {
     static const struct __transmit_power_reg {
         uint8_t max;
         const char *map[4];
@@ -696,18 +731,18 @@ static const char *get_transmit_power(const uint8_t value) {
     };
     for (int i = 0; i < (int)(sizeof(map) / sizeof(struct __transmit_power_reg)); i++)
         if (_e22900txx_device.maxpower == map[i].max)
-            return map[i].map[value & 0x03];
+            return map[i].map[reg & 0x03];
     return "UNKNOWN";
 }
 
-static const char *get_mode_transmit(const uint8_t value) {
+static const char *get_mode_transmit(const uint8_t reg) {
     static const char *map[] = { "fixed-point", "transparent" };
-    return map[(value >> 6) & 0x01];
+    return map[(reg >> 6) & 0x01];
 }
 
-static const char *get_wor_cycle(const uint8_t value) {
+static const char *get_wor_cycle(const uint8_t reg) {
     static const char *map[] = { "500ms", "1000ms", "1500ms", "2000ms (Default)", "2500ms", "3000ms", "3500ms", "4000ms" };
-    return map[value & 0x07];
+    return map[reg & 0x07];
 }
 
 static const char *get_enabled(const uint8_t value) {

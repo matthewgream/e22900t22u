@@ -122,6 +122,10 @@ void config_populate_e22900t22u(e22900t22_config_t *cfg) {
     cfg->channel = (uint8_t)config_get_integer("channel", E22900T22_CONFIG_CHANNEL_DEFAULT);
     cfg->packet_maxsize = (uint8_t)config_get_integer("packet-size", E22900T22_CONFIG_PACKET_MAXSIZE_DEFAULT);
     cfg->packet_maxrate = (uint8_t)config_get_integer("packet-rate", E22900T22_CONFIG_PACKET_MAXRATE_DEFAULT);
+    cfg->crypt = E22900T22_CONFIG_CRYPT_DEFAULT;
+    cfg->wor_enabled = E22900T22_CONFIG_WOR_ENABLED_DEFAULT;
+    cfg->wor_cycle = E22900T22_CONFIG_WOR_CYCLE_DEFAULT;
+    cfg->transmit_power = E22900T22_CONFIG_TRANSMIT_POWER_DEFAULT;
     cfg->listen_before_transmit = config_get_bool("listen-before-transmit", E22900T22_CONFIG_LISTEN_BEFORE_TRANSMIT);
     cfg->rssi_packet = config_get_bool("rssi-packet", E22900T22_CONFIG_RSSI_PACKET_DEFAULT);
     cfg->rssi_channel = config_get_bool("rssi-channel", E22900T22_CONFIG_RSSI_CHANNEL_DEFAULT);
@@ -130,9 +134,9 @@ void config_populate_e22900t22u(e22900t22_config_t *cfg) {
     cfg->debug = config_get_bool("debug", false);
 
     printf("config: e22900t22u: address=0x%04" PRIX16 ", network=0x%02" PRIX8 ", channel=%d, packet-size=%d, packet-rate=%d, rssi-channel=%s, rssi-packet=%s, mode-listen-before-tx=%s, read-timeout-command=%" PRIu32
-           ", read-timeout-packet=%" PRIu32 ", debug=%s\n",
+           ", read-timeout-packet=%" PRIu32 ", crypt=%04" PRIX16 ", wor=%s, wor-cycle=%" PRIu16 "ms, transmit-power=%" PRIu8 ", debug=%s\n",
            cfg->address, cfg->network, cfg->channel, cfg->packet_maxsize, cfg->packet_maxrate, cfg->rssi_channel ? "on" : "off", cfg->rssi_packet ? "on" : "off", cfg->listen_before_transmit ? "on" : "off", cfg->read_timeout_command,
-           cfg->read_timeout_packet, cfg->debug ? "on" : "off");
+           cfg->read_timeout_packet, cfg->crypt, cfg->wor_enabled ? "on" : "off", cfg->wor_cycle, cfg->transmit_power, cfg->debug ? "on" : "off");
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
