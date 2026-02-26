@@ -17,7 +17,17 @@ CFLAGS_STRICT=-Werror \
     -Wwrite-strings
 CFLAGS_OPT=-O6
 CFLAGS_INCLUDES=
-CFLAGS=$(CFLAGS_COMMON) $(CFLAGS_STRICT) $(CFLAGS_DEFINES) $(CFLAGS_OPT) $(CFLAGS_INCLUDES)
+CC_MACHINE := $(shell $(CC) -dumpmachine)
+ifneq ($(findstring x86_64,$(CC_MACHINE)),)
+    CFLAGS_NO_FLOATING_POINT = -mno-sse -mno-mmx -mno-80387
+else ifneq ($(findstring i686,$(CC_MACHINE)),)
+    CFLAGS_NO_FLOATING_POINT = -mno-sse -mno-mmx -mno-80387
+else ifneq ($(findstring i386,$(CC_MACHINE)),)
+    CFLAGS_NO_FLOATING_POINT = -mno-sse -mno-mmx -mno-80387
+else
+    CFLAGS_NO_FLOATING_POINT =
+endif
+CFLAGS=$(CFLAGS_COMMON) $(CFLAGS_STRICT) $(CFLAGS_DEFINES) $(CFLAGS_OPT) $(CFLAGS_INCLUDES) $(CFLAGS_NO_FLOATING_POINT)
 LDFLAGS=
 TARGET=e22900t22u
 SOURCES=include/serial_linux.h include/config_linux.h include/mqtt_linux.h include/util_linux.h include/e22xxxtxx.h

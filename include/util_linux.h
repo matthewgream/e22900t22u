@@ -10,19 +10,6 @@
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-uint32_t __unpack_h(const uint8_t *x) {
-    return (x[0] << 8) | x[1];
-}
-float __unpack_f(const uint8_t *x) {
-    union {
-        uint32_t i;
-        float f;
-    } u;
-    memcpy(&u.i, x, sizeof(uint32_t));
-    u.i = ntohl(u.i);
-    return u.f;
-}
-
 time_t intervalable(const time_t interval, time_t *last) {
     time_t now = time(NULL);
     if (*last == 0) {
@@ -37,31 +24,6 @@ time_t intervalable(const time_t interval, time_t *last) {
     return 0;
 }
 
-void hexdump(const uint8_t *data, const int size, const char *prefix) {
-    static const int bytes_per_line = 16;
-    for (int offset = 0; offset < size; offset += bytes_per_line) {
-        printf("%s%04x: ", prefix, offset);
-        for (int i = 0; i < bytes_per_line; i++) {
-            if (i == bytes_per_line / 2)
-                printf(" ");
-            if (offset + i < size)
-                printf("%02" PRIX8 " ", data[offset + i]);
-            else
-                printf("   ");
-        }
-        printf(" ");
-        for (int i = 0; i < bytes_per_line; i++) {
-            if (i == bytes_per_line / 2)
-                printf(" ");
-            if (offset + i < size)
-                printf("%c", isprint(data[offset + i]) ? data[offset + i] : '.');
-            else
-                printf(" ");
-        }
-        printf("\n");
-    }
-}
-
 bool is_reasonable_json(const uint8_t *packet, const int length) {
     if (length < 2)
         return false;
@@ -73,9 +35,14 @@ bool is_reasonable_json(const uint8_t *packet, const int length) {
     return true;
 }
 
-#define EMA_ALPHA 0.2f
+// 0.2 ≈ 51/256, 0.8 ≈ 205/256
+#define EMA_ALPHA_NUM   51
+#define EMA_ALPHA_DENOM 256
 void ema_update(uint8_t value, uint8_t *value_ema, uint32_t *value_cnt) {
-    *value_ema = (*value_cnt)++ == 0 ? value : (uint8_t)((EMA_ALPHA * (float)value) + ((1.0f - EMA_ALPHA) * (*value_ema)));
+    if ((*value_cnt)++ == 0)
+        *value_ema = value;
+    else
+        *value_ema = (uint8_t)((EMA_ALPHA_NUM * (uint16_t)value + (EMA_ALPHA_DENOM - EMA_ALPHA_NUM) * (uint16_t)(*value_ema)) / EMA_ALPHA_DENOM);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------------

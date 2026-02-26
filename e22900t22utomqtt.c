@@ -352,8 +352,9 @@ void read_and_send(volatile bool *running, const data_type_t data_type) {
 
         time_t period_stat;
         if (*running && (period_stat = intervalable(interval_stat, &interval_stat_last))) {
-            printf("packets-okay=%" PRIu32 " (%.2f/min), packets-drop=%" PRIu32 " (%.2f/min)", stat_packets_okay, ((float)stat_packets_okay / ((float)period_stat / 60.0f)), stat_packets_drop,
-                   ((float)stat_packets_drop / ((float)period_stat / 60.0f)));
+            const uint32_t rate_okay = (stat_packets_okay * 6000) / (uint32_t)period_stat, rate_drop = (stat_packets_drop * 6000) / (uint32_t)period_stat;
+            printf("packets-okay=%" PRIu32 " (%" PRIu32 ".%02" PRIu32 "/min), packets-drop=%" PRIu32 " (%" PRIu32 ".%02" PRIu32 "/min)", stat_packets_okay, rate_okay / 100, rate_okay % 100, stat_packets_drop, rate_drop / 100,
+                   rate_drop % 100);
             stat_packets_okay = stat_packets_drop = 0;
             if (capture_rssi_channel)
                 printf(", channel-rssi=%d dBm (%" PRIu32 ")", get_rssi_dbm(stat_channel_rssi_ema), stat_channel_rssi_cnt);

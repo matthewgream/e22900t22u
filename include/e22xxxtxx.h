@@ -98,7 +98,7 @@ static const char *get_transmit_power(const uint8_t value);
 static const char *get_mode_transmit(const uint8_t value);
 static const char *get_wor_cycle(const uint8_t value);
 static const char *get_enabled(const uint8_t value);
-static float get_frequency(const uint8_t channel);
+static uint32_t get_frequency1000(const uint8_t channel);
 static int get_rssi_dbm(const uint8_t rssi);
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
@@ -441,7 +441,8 @@ static void device_module_config_display(const uint8_t *config_device) {
 
     PRINTF_INFO("address=0x%04" PRIX16 ", ", address);
     PRINTF_INFO("network=0x%02" PRIX8 ", ", network);
-    PRINTF_INFO("channel=%d (frequency=%.3fMHz), ", channel, get_frequency(channel));
+    const uint32_t frequency1000 = get_frequency1000(channel);
+    PRINTF_INFO("channel=%d (frequency=%" PRIu32 ".%03" PRIu32 "MHz), ", channel, frequency1000 / 1000, frequency1000 % 1000);
 
     PRINTF_INFO("data-rate=%s, ", get_packet_rate(reg0));
     PRINTF_INFO("packet-size=%s, ", get_packet_size(reg1));
@@ -508,7 +509,9 @@ static bool update_configuration(uint8_t *config_device) {
 
     const uint8_t channel = config_device[5];
     if (channel != _e22900txx_config.channel) {
-        PRINTF_INFO("device: update_configuration: channel: %d (%.3fMHz) --> %d (%.3fMHz)\n", channel, get_frequency(channel), _e22900txx_config.channel, get_frequency(_e22900txx_config.channel));
+        const uint32_t frequency1000_a = get_frequency1000(channel), frequency1000_b = get_frequency1000(_e22900txx_config.channel);
+        PRINTF_INFO("device: update_configuration: channel: %d (%" PRIu32 ".%03" PRIu32 "MHz) --> %d (%" PRIu32 ".%03" PRIu32 "MHz)\n", channel, frequency1000_a / 1000, frequency1000_a % 1000, _e22900txx_config.channel,
+                    frequency1000_b / 1000, frequency1000_b % 1000);
         config_device[5] = _e22900txx_config.channel;
     }
 
@@ -711,14 +714,14 @@ static const char *get_enabled(const uint8_t value) {
     return value > 0 ? "on" : "off";
 }
 
-static float get_frequency(const uint8_t channel) {
+static uint32_t get_frequency1000(const uint8_t channel) {
     switch (_e22900txx_device.frequency) {
     // case ??: return 220.125 + (channel * 0.25); // E22-230Txx
     // case ??: return 410.125 + (channel * 1.0); // E22-400Txx
     case 11:
-        return 850.125f + (channel * 1.0f); // E22-900Txx
+        return 850125 + (uint32_t)(channel * 1000); // E22-900Txx
     default:
-        return 0.0f;
+        return 0;
     }
 }
 
