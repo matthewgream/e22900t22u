@@ -29,42 +29,46 @@ extern void __sleep_ms(const uint32_t ms);
 #error "both E22900T22_SUPPORT_NO_TRANSMIT and E22900T22_SUPPORT_NO_RECEIVE defined"
 #endif
 
-#define E22900T22_PACKET_MAXSIZE_32                   32
-#define E22900T22_PACKET_MAXSIZE_64                   64
-#define E22900T22_PACKET_MAXSIZE_128                  128
-#define E22900T22_PACKET_MAXSIZE_240                  240
-#define E22900T22_PACKET_MAXSIZE                      E22900T22_PACKET_MAXSIZE_240
+#define E22900T22_PACKET_MAXSIZE_32                      32
+#define E22900T22_PACKET_MAXSIZE_64                      64
+#define E22900T22_PACKET_MAXSIZE_128                     128
+#define E22900T22_PACKET_MAXSIZE_240                     240
+#define E22900T22_PACKET_MAXSIZE                         E22900T22_PACKET_MAXSIZE_240
 
-#define E22900T22_PACKET_MAXRATE_2400                 2
-#define E22900T22_PACKET_MAXRATE_4800                 4
-#define E22900T22_PACKET_MAXRATE_9600                 9
-#define E22900T22_PACKET_MAXRATE_19200                19
-#define E22900T22_PACKET_MAXRATE_38400                38
-#define E22900T22_PACKET_MAXRATE_62500                62
-#define E22900T22_PACKET_MAXRATE                      E22900T22_PACKET_MAXRATE_62500
+#define E22900T22_PACKET_MAXRATE_2400                    2
+#define E22900T22_PACKET_MAXRATE_4800                    4
+#define E22900T22_PACKET_MAXRATE_9600                    9
+#define E22900T22_PACKET_MAXRATE_19200                   19
+#define E22900T22_PACKET_MAXRATE_38400                   38
+#define E22900T22_PACKET_MAXRATE_62500                   62
+#define E22900T22_PACKET_MAXRATE                         E22900T22_PACKET_MAXRATE_62500
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-#define E22900T22_CONFIG_ADDRESS_DEFAULT              0x0000
-#define E22900T22_CONFIG_NETWORK_DEFAULT              0x00
-#define E22900T22_CONFIG_CHANNEL_DEFAULT              0x00 // Channel 0 (850.125 + 0 = 850.125 MHz)
-#define E22900T22_CONFIG_LISTEN_BEFORE_TRANSMIT       true
-#define E22900T22_CONFIG_RSSI_PACKET_DEFAULT          true
-#define E22900T22_CONFIG_RSSI_CHANNEL_DEFAULT         true
-#define E22900T22_CONFIG_READ_TIMEOUT_COMMAND_DEFAULT 1000
-#define E22900T22_CONFIG_READ_TIMEOUT_PACKET_DEFAULT  5000
-#define E22900T22_CONFIG_PACKET_MAXSIZE_DEFAULT       E22900T22_PACKET_MAXSIZE_240
-#define E22900T22_CONFIG_PACKET_MAXRATE_DEFAULT       E22900T22_PACKET_MAXRATE_2400
-#define E22900T22_CONFIG_CRYPT_DEFAULT                0x0000
-#define E22900T22_CONFIG_WOR_ENABLED_DEFAULT          false
-#define E22900T22_CONFIG_WOR_CYCLE_DEFAULT            2000
-#define E22900T22_CONFIG_WOR_CYCLE_MIN                500
-#define E22900T22_CONFIG_WOR_CYCLE_MAX                4000
-#define E22900T22_CONFIG_WOR_CYCLE_INCREMENT          500
-#define E22900T22_CONFIG_TRANSMIT_POWER_DEFAULT       0
-#define E22900T22_CONFIG_TRANSMIT_POWER_MIN           0
-#define E22900T22_CONFIG_TRANSMIT_POWER_MAX           3
+#define E22900T22_CONFIG_ADDRESS_DEFAULT                 0x0000
+#define E22900T22_CONFIG_NETWORK_DEFAULT                 0x00
+#define E22900T22_CONFIG_CHANNEL_DEFAULT                 0x00 // Channel 0 (850.125 + 0 = 850.125 MHz)
+#define E22900T22_CONFIG_LISTEN_BEFORE_TRANSMIT          true
+#define E22900T22_CONFIG_RSSI_PACKET_DEFAULT             true
+#define E22900T22_CONFIG_RSSI_CHANNEL_DEFAULT            true
+#define E22900T22_CONFIG_READ_TIMEOUT_COMMAND_DEFAULT    1000
+#define E22900T22_CONFIG_READ_TIMEOUT_PACKET_DEFAULT     5000
+#define E22900T22_CONFIG_PACKET_MAXSIZE_DEFAULT          E22900T22_PACKET_MAXSIZE_240
+#define E22900T22_CONFIG_PACKET_MAXRATE_DEFAULT          E22900T22_PACKET_MAXRATE_2400
+#define E22900T22_CONFIG_CRYPT_DEFAULT                   0x0000
+#define E22900T22_CONFIG_WOR_ENABLED_DEFAULT             false
+#define E22900T22_CONFIG_WOR_CYCLE_DEFAULT               2000
+#define E22900T22_CONFIG_WOR_CYCLE_MIN                   500
+#define E22900T22_CONFIG_WOR_CYCLE_MAX                   4000
+#define E22900T22_CONFIG_WOR_CYCLE_INCREMENT             500
+#define E22900T22_CONFIG_TRANSMIT_POWER_DEFAULT          0
+#define E22900T22_CONFIG_TRANSMIT_POWER_MIN              0
+#define E22900T22_CONFIG_TRANSMIT_POWER_MAX              3
+#define E22900T22_CONFIG_TRANSMISSION_METHOD_TRANSPARENT 0
+#define E22900T22_CONFIG_TRANSMISSION_METHOD_FIXEDPOINT  1
+#define E22900T22_CONFIG_TRANSMISSION_METHOD_DEFAULT     E22900T22_CONFIG_TRANSMISSION_METHOD_TRANSPARENT
+#define E22900T22_CONFIG_RELAY_ENABLED_DEFAULT           false
 
 typedef struct {
     uint16_t name;
@@ -86,6 +90,8 @@ typedef struct {
     bool wor_enabled;
     uint16_t wor_cycle;
     uint8_t transmit_power;
+    uint8_t transmission_method;
+    bool relay_enabled;
     bool listen_before_transmit;
     bool rssi_packet, rssi_channel;
     uint32_t read_timeout_command, read_timeout_packet;
@@ -405,6 +411,8 @@ static bool device_product_info_read(uint8_t *result) {
 
 static void device_product_info_display(const uint8_t *info) {
     PRINTF_INFO("device: product_info: ");
+    // version=16 (DIP), =32 (USB)
+    // name=0022 (E22)
     PRINTF_INFO("name=%04" PRIX16 ", version=%" PRIu8 ", maxpower=%" PRIu8 ", frequency=%" PRIu8 ", type=%" PRIu8 "", (uint16_t)info[E22900T22_DEVICE_PRD_INFO_OFFSET_NAME_H] << 8 | info[E22900T22_DEVICE_PRD_INFO_OFFSET_NAME_L],
                 info[E22900T22_DEVICE_PRD_INFO_OFFSET_VERSION], info[E22900T22_DEVICE_PRD_INFO_OFFSET_MAXPOWER], info[E22900T22_DEVICE_PRD_INFO_OFFSET_FREQUENCY], info[E22900T22_DEVICE_PRD_INFO_OFFSET_TYPE]);
     PRINTF_INFO(" [");
@@ -541,7 +549,8 @@ static bool update_configuration(uint8_t *config_device) {
     }
 
     __update_config_bool("rssi-packet", &config_device[6], 0x80, _e22900txx_config.rssi_packet);
-    // XXX config_device[6] // transmission_method (0x40) / relay_function (0x20) [NOT SUPPORTED]
+    __update_config_bool("mode-transmit", &config_device[6], 0x40, _e22900txx_config.transmission_method == E22900T22_CONFIG_TRANSMISSION_METHOD_FIXEDPOINT);
+    __update_config_bool("mode-relay", &config_device[6], 0x20, _e22900txx_config.relay_enabled);
     __update_config_bool("listen-before-transmit", &config_device[6], 0x10, _e22900txx_config.listen_before_transmit);
     __update_config_bool("wor-enabled", &config_device[6], 0x08, _e22900txx_config.wor_enabled);
     const uint16_t wor_cycle = (uint16_t)E22900T22_CONFIG_WOR_CYCLE_MIN + (uint16_t)((config_device[6] & 0x07) * E22900T22_CONFIG_WOR_CYCLE_INCREMENT);
