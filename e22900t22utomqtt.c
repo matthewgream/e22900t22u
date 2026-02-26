@@ -129,7 +129,7 @@ void config_populate_e22900t22u(e22900t22_config_t *cfg) {
     cfg->read_timeout_packet = (uint32_t)config_get_integer("read-timeout-packet", E22900T22_CONFIG_READ_TIMEOUT_PACKET_DEFAULT);
     cfg->debug = config_get_bool("debug", false);
 
-    printf("config: e22900t22u: address=0x%04" PRIx16 ", network=0x%02" PRIx8 ", channel=%d, packet-size=%d, packet-rate=%d, rssi-channel=%s, rssi-packet=%s, mode-listen-before-tx=%s, read-timeout-command=%" PRIu32
+    printf("config: e22900t22u: address=0x%04" PRIX16 ", network=0x%02" PRIX8 ", channel=%d, packet-size=%d, packet-rate=%d, rssi-channel=%s, rssi-packet=%s, mode-listen-before-tx=%s, read-timeout-command=%" PRIu32
            ", read-timeout-packet=%" PRIu32 ", debug=%s\n",
            cfg->address, cfg->network, cfg->channel, cfg->packet_maxsize, cfg->packet_maxrate, cfg->rssi_channel ? "on" : "off", cfg->rssi_packet ? "on" : "off", cfg->listen_before_transmit ? "on" : "off", cfg->read_timeout_command,
            cfg->read_timeout_packet, cfg->debug ? "on" : "off");

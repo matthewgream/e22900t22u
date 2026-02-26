@@ -45,7 +45,7 @@ void hexdump(const uint8_t *data, const int size, const char *prefix) {
             if (i == bytes_per_line / 2)
                 printf(" ");
             if (offset + i < size)
-                printf("%02" PRIx8 " ", data[offset + i]);
+                printf("%02" PRIX8 " ", data[offset + i]);
             else
                 printf("   ");
         }
