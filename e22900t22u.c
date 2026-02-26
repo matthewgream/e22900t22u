@@ -36,7 +36,7 @@ void printf_stderr(const char *format, ...) {
 }
 
 #define PRINTF_DEBUG printf_stdout
-#define PRINTF_INFO printf_stdout
+#define PRINTF_INFO  printf_stdout
 #define PRINTF_ERROR printf_stderr
 
 #include "include/serial_linux.h"
@@ -48,7 +48,9 @@ void printf_stderr(const char *format, ...) {
 #define E22900T22_SUPPORT_MODULE_USB
 #include "include/e22xxxtxx.h"
 
-void __sleep_ms(const unsigned long ms) { usleep((useconds_t)ms * 1000); }
+void __sleep_ms(const uint32_t ms) {
+    usleep((useconds_t)ms * 1000);
+}
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
@@ -63,13 +65,13 @@ e22900t22_config_t e22900t22u_config = {
     .address = 0x0008,
     .network = 0x00,
     .channel = 0x17, // Channel 23 (850.125 + 23 = 873.125 MHz)
-    .packet_maxsize = CONFIG_PACKET_MAXSIZE_DEFAULT,
-    .packet_maxrate = CONFIG_PACKET_MAXRATE_DEFAULT,
+    .packet_maxsize = E22900T22_CONFIG_PACKET_MAXSIZE_DEFAULT,
+    .packet_maxrate = E22900T22_CONFIG_PACKET_MAXRATE_DEFAULT,
     .listen_before_transmit = false,
     .rssi_packet = true,
     .rssi_channel = true,
-    .read_timeout_command = CONFIG_READ_TIMEOUT_COMMAND_DEFAULT,
-    .read_timeout_packet = CONFIG_READ_TIMEOUT_PACKET_DEFAULT,
+    .read_timeout_command = E22900T22_CONFIG_READ_TIMEOUT_COMMAND_DEFAULT,
+    .read_timeout_packet = E22900T22_CONFIG_READ_TIMEOUT_PACKET_DEFAULT,
     .debug = false,
 };
 
@@ -94,8 +96,7 @@ int main(int argc __attribute__((unused)), char *argv[] __attribute__((unused)))
     signal(SIGTERM, signal_handler);
 
     if (!serial_begin(&serial_config) || !serial_connect()) {
-        fprintf(stderr, "device: failed to connect (port=%s, rate=%d, bits=%s)\n", serial_config.port,
-                serial_config.rate, serial_bits_str(serial_config.bits));
+        fprintf(stderr, "device: failed to connect (port=%s, rate=%d, bits=%s)\n", serial_config.port, serial_config.rate, serial_bits_str(serial_config.bits));
         return false;
     }
 
@@ -103,8 +104,7 @@ int main(int argc __attribute__((unused)), char *argv[] __attribute__((unused)))
         serial_disconnect();
         return EXIT_FAILURE;
     }
-    printf("device: connected (port=%s, rate=%d, bits=%s)\n", serial_config.port, serial_config.rate,
-           serial_bits_str(serial_config.bits));
+    printf("device: connected (port=%s, rate=%d, bits=%s)\n", serial_config.port, serial_config.rate, serial_bits_str(serial_config.bits));
     if (!(device_mode_config() && device_info_read() && device_config_read_and_update() && device_mode_transfer())) {
         device_disconnect();
         serial_disconnect();

@@ -22,15 +22,13 @@ bool mqtt_send(const char *topic, const char *message, const int length) {
     return true;
 }
 
-void mqtt_message_callback_wrapper(struct mosquitto *m, void *o __attribute__((unused)),
-                                   const struct mosquitto_message *message) {
+void mqtt_message_callback_wrapper(struct mosquitto *m, void *o __attribute__((unused)), const struct mosquitto_message *message) {
     if (m != mosq)
         return;
     if (mqtt_message_callback)
         mqtt_message_callback((const char *)message->topic, message->payload, message->payloadlen);
 }
-bool mqtt_subscribe(const char *topic, const int qos,
-                    void (*callback)(const char *, const unsigned char *, const int)) {
+bool mqtt_subscribe(const char *topic, const int qos, void (*callback)(const char *, const unsigned char *, const int)) {
     if (!mosq)
         return false;
     mqtt_message_callback = callback;

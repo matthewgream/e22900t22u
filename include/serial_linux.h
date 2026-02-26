@@ -15,7 +15,7 @@
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
 #define SERIAL_CONNECT_CHECK_PERIOD 5
-#define SERIAL_CONNECT_CHECK_PRINT 30
+#define SERIAL_CONNECT_CHECK_PRINT  30
 
 typedef enum {
     SERIAL_8N1 = 0,
@@ -46,7 +46,9 @@ int serial_fd = -1;
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-bool serial_check(void) { return (access(_serial_cfg->port, F_OK) == 0); }
+bool serial_check(void) {
+    return (access(_serial_cfg->port, F_OK) == 0);
+}
 
 bool serial_connect(void) {
     serial_fd = open(_serial_cfg->port, O_RDWR | O_NOCTTY);
@@ -131,7 +133,9 @@ void serial_disconnect(void) {
     serial_fd = -1;
 }
 
-bool serial_connected(void) { return serial_fd >= 0; }
+bool serial_connected(void) {
+    return serial_fd >= 0;
+}
 
 bool serial_connect_wait(volatile bool *running) {
     int counter = 0;
@@ -162,7 +166,9 @@ int serial_write(const unsigned char *buffer, const int length) {
     return (int)write(serial_fd, buffer, (size_t)length);
 }
 
-bool serial_write_all(const unsigned char *buffer, const int length) { return serial_write(buffer, length) == length; }
+bool serial_write_all(const unsigned char *buffer, const int length) {
+    return serial_write(buffer, length) == length;
+}
 
 int serial_read(unsigned char *buffer, const int length, const unsigned long timeout_ms) {
     if (serial_fd < 0)
@@ -205,7 +211,9 @@ bool serial_begin(const serial_config_t *config) {
     return true;
 }
 
-void serial_end(void) { serial_disconnect(); }
+void serial_end(void) {
+    serial_disconnect();
+}
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------

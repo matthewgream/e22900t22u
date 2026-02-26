@@ -46,8 +46,7 @@ int config_get_integer(const char *key, const int default_value) {
             if (*endptr == '\0')
                 return (int)val;
             else {
-                fprintf(stderr, "config: invalid integer value '%s' for key '%s', using default\n",
-                        config_entries[i].value, key);
+                fprintf(stderr, "config: invalid integer value '%s' for key '%s', using default\n", config_entries[i].value, key);
                 return default_value;
             }
         }
@@ -61,8 +60,7 @@ bool config_get_bool(const char *key, const bool default_value) {
                 return true;
             else if (strcasecmp(config_entries[i].value, "false") == 0 || strcmp(config_entries[i].value, "0") == 0)
                 return false;
-            fprintf(stderr, "config: invalid boolean value '%s' for key '%s', using default\n", config_entries[i].value,
-                    key);
+            fprintf(stderr, "config: invalid boolean value '%s' for key '%s', using default\n", config_entries[i].value, key);
         }
     return default_value;
 }

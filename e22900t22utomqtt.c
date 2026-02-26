@@ -9,6 +9,7 @@
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
+#include <inttypes.h>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -26,12 +27,12 @@ bool debug_readandsend = false;
 bool debug_e22900t22u = false;
 
 void printf_debug(const char *format, ...) {
-    if (debug_e22900t22u) {
-        va_list args;
-        va_start(args, format);
-        vfprintf(stdout, format, args);
-        va_end(args);
-    }
+    if (!debug_e22900t22u)
+        return;
+    va_list args;
+    va_start(args, format);
+    vfprintf(stdout, format, args);
+    va_end(args);
 }
 void printf_stdout(const char *format, ...) {
     va_list args;
@@ -48,7 +49,7 @@ void printf_stderr(const char *format, ...) {
 
 #define PRINTF_DEBUG printf_debug
 #define PRINTF_ERROR printf_stderr
-#define PRINTF_INFO printf_stdout
+#define PRINTF_INFO  printf_stdout
 
 #include "include/serial_linux.h"
 
@@ -56,23 +57,25 @@ void printf_stderr(const char *format, ...) {
 #define E22900T22_SUPPORT_MODULE_USB
 #include "include/e22xxxtxx.h"
 
-void __sleep_ms(const unsigned long ms) { usleep((useconds_t)ms * 1000); }
+void __sleep_ms(const uint32_t ms) {
+    usleep((useconds_t)ms * 1000);
+}
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-#define CONFIG_FILE_DEFAULT "e22900t22utomqtt.cfg"
+#define CONFIG_FILE_DEFAULT    "e22900t22utomqtt.cfg"
 
-#define SERIAL_PORT_DEFAULT "/dev/e22900t22u"
-#define SERIAL_RATE_DEFAULT 9600
-#define SERIAL_BITS_DEFAULT SERIAL_8N1
+#define SERIAL_PORT_DEFAULT    "/dev/e22900t22u"
+#define SERIAL_RATE_DEFAULT    9600
+#define SERIAL_BITS_DEFAULT    SERIAL_8N1
 
-#define MQTT_CLIENT_DEFAULT "e22900t22utomqtt"
-#define MQTT_SERVER_DEFAULT "mqtt://localhost"
-#define MQTT_TOPIC_DEFAULT "e22900t22u"
+#define MQTT_CLIENT_DEFAULT    "e22900t22utomqtt"
+#define MQTT_SERVER_DEFAULT    "mqtt://localhost"
+#define MQTT_TOPIC_DEFAULT     "e22900t22u"
 
-#define INTERVAL_STAT_DEFAULT 5 * 60
-#define INTERVAL_RSSI_DEFAULT 1 * 60
+#define INTERVAL_STAT_DEFAULT  5 * 60
+#define INTERVAL_RSSI_DEFAULT  1 * 60
 
 #define DATA_TYPE_TYPE_DEFAULT "json-convert"
 
@@ -114,35 +117,30 @@ void config_populate_serial(serial_config_t *cfg) {
 }
 
 void config_populate_e22900t22u(e22900t22_config_t *cfg) {
-    cfg->address = (unsigned short)config_get_integer("address", CONFIG_ADDRESS_DEFAULT);
-    cfg->network = (unsigned char)config_get_integer("network", CONFIG_NETWORK_DEFAULT);
-    cfg->channel = (unsigned char)config_get_integer("channel", CONFIG_CHANNEL_DEFAULT);
-    cfg->packet_maxsize = (unsigned char)config_get_integer("packet-size", CONFIG_PACKET_MAXSIZE_DEFAULT);
-    cfg->packet_maxrate = (unsigned char)config_get_integer("packet-rate", CONFIG_PACKET_MAXRATE_DEFAULT);
-    cfg->listen_before_transmit = config_get_bool("listen-before-transmit", CONFIG_LISTEN_BEFORE_TRANSMIT);
-    cfg->rssi_packet = config_get_bool("rssi-packet", CONFIG_RSSI_PACKET_DEFAULT);
-    cfg->rssi_channel = config_get_bool("rssi-channel", CONFIG_RSSI_CHANNEL_DEFAULT);
-    cfg->read_timeout_command =
-        (unsigned long)config_get_integer("read-timeout-command", CONFIG_READ_TIMEOUT_COMMAND_DEFAULT);
-    cfg->read_timeout_packet =
-        (unsigned long)config_get_integer("read-timeout-packet", CONFIG_READ_TIMEOUT_PACKET_DEFAULT);
+    cfg->address = (uint16_t)config_get_integer("address", E22900T22_CONFIG_ADDRESS_DEFAULT);
+    cfg->network = (uint8_t)config_get_integer("network", E22900T22_CONFIG_NETWORK_DEFAULT);
+    cfg->channel = (uint8_t)config_get_integer("channel", E22900T22_CONFIG_CHANNEL_DEFAULT);
+    cfg->packet_maxsize = (uint8_t)config_get_integer("packet-size", E22900T22_CONFIG_PACKET_MAXSIZE_DEFAULT);
+    cfg->packet_maxrate = (uint8_t)config_get_integer("packet-rate", E22900T22_CONFIG_PACKET_MAXRATE_DEFAULT);
+    cfg->listen_before_transmit = config_get_bool("listen-before-transmit", E22900T22_CONFIG_LISTEN_BEFORE_TRANSMIT);
+    cfg->rssi_packet = config_get_bool("rssi-packet", E22900T22_CONFIG_RSSI_PACKET_DEFAULT);
+    cfg->rssi_channel = config_get_bool("rssi-channel", E22900T22_CONFIG_RSSI_CHANNEL_DEFAULT);
+    cfg->read_timeout_command = (uint32_t)config_get_integer("read-timeout-command", E22900T22_CONFIG_READ_TIMEOUT_COMMAND_DEFAULT);
+    cfg->read_timeout_packet = (uint32_t)config_get_integer("read-timeout-packet", E22900T22_CONFIG_READ_TIMEOUT_PACKET_DEFAULT);
     cfg->debug = config_get_bool("debug", false);
 
-    printf("config: e22900t22u: address=0x%04x, network=0x%02x, channel=%d, packet-size=%d, packet-rate=%d, "
-           "rssi-channel=%s, "
-           "rssi-packet=%s, mode-listen-before-tx=%s, read-timeout-command=%lu, read-timeout-packet=%lu, debug=%s\n",
-           cfg->address, cfg->network, cfg->channel, cfg->packet_maxsize, cfg->packet_maxrate,
-           cfg->rssi_channel ? "on" : "off", cfg->rssi_packet ? "on" : "off",
-           cfg->listen_before_transmit ? "on" : "off", cfg->read_timeout_command, cfg->read_timeout_packet,
-           cfg->debug ? "on" : "off");
+    printf("config: e22900t22u: address=0x%04" PRIx16 ", network=0x%02" PRIx8 ", channel=%d, packet-size=%d, packet-rate=%d, rssi-channel=%s, rssi-packet=%s, mode-listen-before-tx=%s, read-timeout-command=%" PRIu32
+           ", read-timeout-packet=%" PRIu32 ", debug=%s\n",
+           cfg->address, cfg->network, cfg->channel, cfg->packet_maxsize, cfg->packet_maxrate, cfg->rssi_channel ? "on" : "off", cfg->rssi_packet ? "on" : "off", cfg->listen_before_transmit ? "on" : "off", cfg->read_timeout_command,
+           cfg->read_timeout_packet, cfg->debug ? "on" : "off");
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
 #define MQTT_CONNECT_TIMEOUT 60
-#define MQTT_PUBLISH_QOS 0
-#define MQTT_PUBLISH_RETAIN false
+#define MQTT_PUBLISH_QOS     0
+#define MQTT_PUBLISH_RETAIN  false
 
 #include "include/mqtt_linux.h"
 
@@ -203,7 +201,6 @@ void config_populate_topic_routes(const char *topic_default) {
         const char *key = config_get_string(key_name, NULL);
         if (!key)
             continue;
-
         char value_name[64], topic_name[64];
         snprintf(value_name, sizeof(value_name), "topic-route.%d.value", i);
         snprintf(topic_name, sizeof(topic_name), "topic-route.%d.topic", i);
@@ -213,32 +210,31 @@ void config_populate_topic_routes(const char *topic_default) {
             topic_routes[topic_route_count].key = key;
             topic_routes[topic_route_count].value = value;
             topic_routes[topic_route_count].topic = topic;
-            printf("config: topic-route[%d]: key='%s', value='%s', topic='%s'\n", (int)topic_route_count, key, value,
-                   topic);
+            printf("config: topic-route[%d]: key='%s', value='%s', topic='%s'\n", (int)topic_route_count, key, value, topic);
             topic_route_count++;
         }
     }
     if (topic_route_count == 0)
         printf("config: no topic routes configured, using default topic\n");
 }
-bool route_topic_match_json(const unsigned char *packet, const int packet_size, const char *key, const char *value) {
+bool route_topic_match_json(const uint8_t *packet, const int packet_size, const char *key, const char *value) {
     char search_pattern[64 + 64 + 64];
     const int pattern_len = snprintf(search_pattern, sizeof(search_pattern), "\"%s\":\"%s\"", key, value);
     if (pattern_len >= packet_size)
         return false;
-    const unsigned char first_char = (unsigned char)search_pattern[0];
+    const uint8_t first_char = (uint8_t)search_pattern[0];
     for (int i = 0; i <= packet_size - pattern_len; i++)
         if (packet[i] == first_char && memcmp(packet + i, search_pattern, (size_t)pattern_len) == 0)
             return true;
     return false;
 }
-bool route_topic_match_binary(const unsigned char *packet, const int packet_size, const char *key, const char *value) {
+bool route_topic_match_binary(const uint8_t *packet, const int packet_size, const char *key, const char *value) {
     const int offset = atoi(key);
     if (offset < 0 || offset >= packet_size)
         return false;
     if (strlen(value) != 2)
         return false;
-    unsigned char expected_value = 0;
+    uint8_t expected_value = 0;
     for (int i = 0; i < 2; i++) {
         char c = value[i];
         char digit;
@@ -250,11 +246,11 @@ bool route_topic_match_binary(const unsigned char *packet, const int packet_size
             digit = c - 'A' + 10;
         else
             return false; // Invalid hex character
-        expected_value = (expected_value << 4) | (unsigned char)digit;
+        expected_value = (expected_value << 4) | (uint8_t)digit;
     }
     return packet[offset] == expected_value;
 }
-const char *route_topic_select(const unsigned char *packet, const int packet_size, const data_type_t data_type) {
+const char *route_topic_select(const uint8_t *packet, const int packet_size, const data_type_t data_type) {
     if (topic_route_count == 0)
         return topic_route_default;
     for (size_t i = 0; i < topic_route_count; i++) {
@@ -273,27 +269,25 @@ const char *route_topic_select(const unsigned char *packet, const int packet_siz
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
 bool capture_rssi_packet = false, capture_rssi_channel = false;
-unsigned long stat_channel_rssi_cnt = 0, stat_packet_rssi_cnt = 0;
-unsigned char stat_channel_rssi_ema, stat_packet_rssi_ema;
-unsigned long stat_packets_okay = 0, stat_packets_drop = 0;
+uint32_t stat_channel_rssi_cnt = 0, stat_packet_rssi_cnt = 0;
+uint8_t stat_channel_rssi_ema, stat_packet_rssi_ema;
+uint32_t stat_packets_okay = 0, stat_packets_drop = 0;
 time_t interval_stat = 0, interval_stat_last = 0;
 time_t interval_rssi = 0, interval_rssi_last = 0;
-#define PACKET_BUFFER_MAX ((E22900T22_PACKET_MAXSIZE_240 * 2) + 4) // has +1 for RSSI; adds 2 for '["' <HEX> '"]'
+#define PACKET_BUFFER_MAX ((E22900T22_PACKET_MAXSIZE * 2) + 4) // has +1 for RSSI; adds 2 for '["' <HEX> '"]'
 
 void read_and_send(volatile bool *running, const data_type_t data_type) {
 
-    unsigned char packet_buffer[PACKET_BUFFER_MAX];
+    uint8_t packet_buffer[PACKET_BUFFER_MAX];
     int packet_size;
 
-    printf("read-and-publish (stat=%lds, rssi=%lds [packets=%c, channel=%c], data-type=%s)\n", interval_stat,
-           interval_rssi, capture_rssi_packet ? 'y' : 'n', capture_rssi_channel ? 'y' : 'n',
-           data_type_tostring(data_type));
+    printf("read-and-publish (stat=%lds, rssi=%lds [packets=%c, channel=%c], data-type=%s)\n", interval_stat, interval_rssi, capture_rssi_packet ? 'y' : 'n', capture_rssi_channel ? 'y' : 'n', data_type_tostring(data_type));
 
     while (*running) {
 
-        unsigned char packet_rssi = 0, channel_rssi = 0;
+        uint8_t packet_rssi = 0, channel_rssi = 0;
 
-        if (device_packet_read(packet_buffer, config.packet_maxsize + 1, &packet_size, &packet_rssi) && *running) {
+        if (device_packet_read(packet_buffer, E22900T22_PACKET_MAXSIZE + 1, &packet_size, &packet_rssi) && *running) {
             bool deliver = false;
             switch (data_type) {
             case DATA_TYPE_JSON:
@@ -316,9 +310,9 @@ void read_and_send(volatile bool *running, const data_type_t data_type) {
                     packet_buffer[0] = '[';
                     packet_buffer[1] = '"';
                     for (int i = 0; i < packet_size; i++) {
-                        const unsigned char byte = packet_buffer[data_offset + i];
-                        packet_buffer[2 + (i * 2)] = (unsigned char)"0123456789abcdef"[byte >> 4];
-                        packet_buffer[2 + (i * 2) + 1] = (unsigned char)"0123456789abcdef"[byte & 0x0f];
+                        const uint8_t byte = packet_buffer[data_offset + i];
+                        packet_buffer[2 + (i * 2)] = (uint8_t)"0123456789abcdef"[byte >> 4];
+                        packet_buffer[2 + (i * 2) + 1] = (uint8_t)"0123456789abcdef"[byte & 0x0f];
                     }
                     packet_buffer[2 + (packet_size * 2)] = '"';
                     packet_buffer[2 + (packet_size * 2) + 1] = ']';
@@ -339,13 +333,11 @@ void read_and_send(volatile bool *running, const data_type_t data_type) {
                     if (mqtt_send(topic, (const char *)packet_buffer, packet_size))
                         stat_packets_okay++;
                     else {
-                        fprintf(stderr, "read-and-publish: mqtt send failed, discarding packet (size=%d)\n",
-                                packet_size);
+                        fprintf(stderr, "read-and-publish: mqtt send failed, discarding packet (size=%d)\n", packet_size);
                         stat_packets_drop++;
                     }
                 } else {
-                    fprintf(stderr, "read-and-publish: no topic route match, discarding packet (size=%d)\n",
-                            packet_size);
+                    fprintf(stderr, "read-and-publish: no topic route match, discarding packet (size=%d)\n", packet_size);
                     stat_packets_drop++;
                 }
             }
@@ -360,14 +352,13 @@ void read_and_send(volatile bool *running, const data_type_t data_type) {
 
         time_t period_stat;
         if (*running && (period_stat = intervalable(interval_stat, &interval_stat_last))) {
-            printf("packets-okay=%ld (%.2f/min), packets-drop=%ld (%.2f/min)", stat_packets_okay,
-                   ((float)stat_packets_okay / ((float)period_stat / 60.0f)), stat_packets_drop,
+            printf("packets-okay=%" PRIu32 " (%.2f/min), packets-drop=%" PRIu32 " (%.2f/min)", stat_packets_okay, ((float)stat_packets_okay / ((float)period_stat / 60.0f)), stat_packets_drop,
                    ((float)stat_packets_drop / ((float)period_stat / 60.0f)));
             stat_packets_okay = stat_packets_drop = 0;
             if (capture_rssi_channel)
-                printf(", channel-rssi=%d dBm (%ld)", get_rssi_dbm(stat_channel_rssi_ema), stat_channel_rssi_cnt);
+                printf(", channel-rssi=%d dBm (%" PRIu32 ")", get_rssi_dbm(stat_channel_rssi_ema), stat_channel_rssi_cnt);
             if (capture_rssi_packet)
-                printf(", packet-rssi=%d dbm (%ld)", get_rssi_dbm(stat_packet_rssi_ema), stat_packet_rssi_cnt);
+                printf(", packet-rssi=%d dbm (%" PRIu32 ")", get_rssi_dbm(stat_packet_rssi_ema), stat_packet_rssi_cnt);
             printf("\n");
         }
     }
@@ -392,8 +383,8 @@ bool config_setup(int argc, char *argv[]) {
     mqtt_client = config_get_string("mqtt-client", MQTT_CLIENT_DEFAULT);
     mqtt_server = config_get_string("mqtt-server", MQTT_SERVER_DEFAULT);
 
-    capture_rssi_packet = config_get_bool("rssi-packet", CONFIG_RSSI_PACKET_DEFAULT);
-    capture_rssi_channel = config_get_bool("rssi-channel", CONFIG_RSSI_CHANNEL_DEFAULT);
+    capture_rssi_packet = config_get_bool("rssi-packet", E22900T22_CONFIG_RSSI_PACKET_DEFAULT);
+    capture_rssi_channel = config_get_bool("rssi-channel", E22900T22_CONFIG_RSSI_CHANNEL_DEFAULT);
     interval_stat = config_get_integer("interval-stat", INTERVAL_STAT_DEFAULT);
     interval_rssi = config_get_integer("interval-rssi", INTERVAL_RSSI_DEFAULT);
 
@@ -429,16 +420,14 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
 
     if (!serial_begin(&serial_config) || !serial_connect()) {
-        fprintf(stderr, "device: failed to connect (port=%s, rate=%d, bits=%s)\n", serial_config.port,
-                serial_config.rate, serial_bits_str(serial_config.bits));
+        fprintf(stderr, "device: failed to connect (port=%s, rate=%d, bits=%s)\n", serial_config.port, serial_config.rate, serial_bits_str(serial_config.bits));
         return EXIT_FAILURE;
     }
     if (!device_connect(E22900T22_MODULE_USB, &e22900t22u_config)) {
         serial_end();
         return EXIT_FAILURE;
     }
-    printf("device: connected (port=%s, rate=%d, bits=%s)\n", serial_config.port, serial_config.rate,
-           serial_bits_str(serial_config.bits));
+    printf("device: connected (port=%s, rate=%d, bits=%s)\n", serial_config.port, serial_config.rate, serial_bits_str(serial_config.bits));
     if (!(device_mode_config() && device_info_read() && device_config_read_and_update() && device_mode_transfer())) {
         device_disconnect();
         serial_end();

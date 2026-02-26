@@ -3,5 +3,22 @@ BasedOnStyle: LLVM
 IndentWidth: 4
 TabWidth: 4
 UseTab: Never
-ColumnLimit: 120
+ColumnLimit: 240
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterStruct: false
+  SplitEmptyRecord: false
+AlignConsecutiveMacros:
+  Enabled: true
+  AcrossEmptyLines: true
+  AcrossComments: true
+  AlignCompound: true
+  PadOperators: true
+AllowShortBlocksOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortEnumsOnASingleLine: false
+AlignEscapedNewlines: DontAlign
+SpacesInContainerLiterals: true
+Cpp11BracedListStyle: false
+SortIncludes: false
 ---

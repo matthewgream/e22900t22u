@@ -16,8 +16,8 @@ class Intervalable {
     counter_t _exceeded = 0;
 
   public:
-    explicit Intervalable(const interval_t interval = 0, const interval_t previous = 0)
-        : _interval(interval), _previous(previous) {}
+    explicit Intervalable(const interval_t interval = 0, const interval_t previous = 0) : _interval(interval), _previous(previous) {
+    }
     operator bool() {
         const interval_t current = millis();
         if (current - _previous > _interval) {
@@ -26,7 +26,9 @@ class Intervalable {
         }
         return false;
     }
-    bool active() const { return _interval > 0; }
+    bool active() const {
+        return _interval > 0;
+    }
     interval_t remaining() const {
         const interval_t current = millis();
         return _interval - (current - _previous);
@@ -46,7 +48,9 @@ class Intervalable {
             _interval = interval;
         _previous = millis();
     }
-    void setat(const interval_t place) { _previous = millis() - ((_interval - place) % _interval); }
+    void setat(const interval_t place) {
+        _previous = millis() - ((_interval - place) % _interval);
+    }
     void wait() {
         const interval_t current = millis();
         if (current - _previous < _interval)
@@ -55,7 +59,9 @@ class Intervalable {
             _exceeded++;
         _previous = millis();
     }
-    counter_t exceeded() const { return _exceeded; }
+    counter_t exceeded() const {
+        return _exceeded;
+    }
 };
 
 #include <esp_mac.h>
@@ -64,7 +70,7 @@ template <size_t N> String BytesToHexString(const uint8_t bytes[], const char *s
     constexpr size_t separator_max = 1; // change if needed
     if (strlen(separator) > separator_max)
         return String("");
-    char buffer[(N * 2) + ((N - 1) * separator_max) + 1] = {'\0'}, *buffer_ptr = buffer;
+    char buffer[(N * 2) + ((N - 1) * separator_max) + 1] = { '\0' }, *buffer_ptr = buffer;
     for (size_t i = 0; i < N; i++) {
         if (i > 0 && separator[0] != '\0')
             for (const char *separator_ptr = separator; *separator_ptr != '\0';)
@@ -93,10 +99,12 @@ static inline constexpr gpio_num_t PIN_E22900T22D_TXD = GPIO_NUM_20;
 static inline constexpr gpio_num_t PIN_E22900T22D_AUX = GPIO_NUM_21;
 
 #define PRINTF_DEBUG Serial.printf
-#define PRINTF_INFO Serial.printf
+#define PRINTF_INFO  Serial.printf
 #define PRINTF_ERROR Serial.printf
 
-void __sleep_ms(const unsigned long ms) { delay(ms); }
+void __sleep_ms(const uint32_t ms) {
+    delay(ms);
+}
 
 // -----------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------
@@ -114,7 +122,9 @@ bool serial_connect(void) {
     return true;
 }
 
-void serial_disconnect(void) { serial_hw.end(); }
+void serial_disconnect(void) {
+    serial_hw.end();
+}
 
 void serial_flush(void) {
     while (serial_hw.available())
@@ -151,18 +161,20 @@ void e22900t22d_set_pin_mx(const bool pin_m0, const bool pin_m1) {
     digitalWrite(PIN_E22900T22D_M0, pin_m0 ? HIGH : LOW);
     digitalWrite(PIN_E22900T22D_M1, pin_m1 ? HIGH : LOW);
 }
-bool e22900t22d_get_pin_aux(void) { return digitalRead(PIN_E22900T22D_AUX) == HIGH ? true : false; }
+bool e22900t22d_get_pin_aux(void) {
+    return digitalRead(PIN_E22900T22D_AUX) == HIGH ? true : false;
+}
 
 e22900t22_config_t e22900t22u_config = {
     .address = 0x0008,
     .network = 0x00,
     .channel = 0x17, // Channel 23 (850.125 + 23 = 873.125 MHz)
-    .packet_maxsize = CONFIG_PACKET_MAXSIZE_DEFAULT,
+    .packet_maxsize = E22900T22_CONFIG_PACKET_MAXSIZE_DEFAULT,
     .listen_before_transmit = true,
     .rssi_packet = true,
     .rssi_channel = true,
-    .read_timeout_command = CONFIG_READ_TIMEOUT_COMMAND_DEFAULT,
-    .read_timeout_packet = CONFIG_READ_TIMEOUT_PACKET_DEFAULT,
+    .read_timeout_command = E22900T22_CONFIG_READ_TIMEOUT_COMMAND_DEFAULT,
+    .read_timeout_packet = E22900T22_CONFIG_READ_TIMEOUT_PACKET_DEFAULT,
     .set_pin_mx = e22900t22d_set_pin_mx,
     .get_pin_aux = e22900t22d_get_pin_aux,
     .debug = false,
