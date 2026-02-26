@@ -87,8 +87,10 @@ typedef struct {
     uint8_t packet_maxsize;
     uint8_t packet_maxrate;
     uint16_t crypt;
+#ifdef E22900T22_SUPPORT_MODULE_DIP
     bool wor_enabled;
     uint16_t wor_cycle;
+#endif
     uint8_t transmit_power;
     uint8_t transmission_method;
     bool relay_enabled;
@@ -115,7 +117,9 @@ static const char *get_packet_rate(const uint8_t value);
 static const char *get_packet_size(const uint8_t value);
 static const char *get_transmit_power(const uint8_t value);
 static const char *get_mode_transmit(const uint8_t value);
+#ifdef E22900T22_SUPPORT_MODULE_DIP
 static const char *get_wor_cycle(const uint8_t value);
+#endif
 static const char *get_enabled(const uint8_t value);
 static uint32_t get_frequency1000(const uint8_t channel);
 static int get_rssi_dbm(const uint8_t rssi);
@@ -552,6 +556,7 @@ static bool update_configuration(uint8_t *config_device) {
     __update_config_bool("mode-transmit", &config_device[6], 0x40, _e22900txx_config.transmission_method == E22900T22_CONFIG_TRANSMISSION_METHOD_FIXEDPOINT);
     __update_config_bool("mode-relay", &config_device[6], 0x20, _e22900txx_config.relay_enabled);
     __update_config_bool("listen-before-transmit", &config_device[6], 0x10, _e22900txx_config.listen_before_transmit);
+#ifdef E22900T22_SUPPORT_MODULE_DIP
     __update_config_bool("wor-enabled", &config_device[6], 0x08, _e22900txx_config.wor_enabled);
     const uint16_t wor_cycle = (uint16_t)E22900T22_CONFIG_WOR_CYCLE_MIN + (uint16_t)((config_device[6] & 0x07) * E22900T22_CONFIG_WOR_CYCLE_INCREMENT);
     if (wor_cycle != _e22900txx_config.wor_cycle) {
@@ -559,6 +564,7 @@ static bool update_configuration(uint8_t *config_device) {
         PRINTF_INFO("device: update_configuration: wor-cycle: %" PRIu8 " (%" PRIu16 "ms) --> %" PRIu8 " (%" PRIu16 "ms)\n", wor_index, wor_cycle, wor_index_b, _e22900txx_config.wor_cycle);
         config_device[6] = (config_device[6] ^ wor_index) | wor_index_b;
     }
+#endif
     const uint16_t crypt = (uint16_t)config_device[7] << 8 | config_device[8];
     if (crypt != _e22900txx_config.crypt) {
         PRINTF_INFO("device: update_configuration: crypt: 0x%04" PRIX16 " --> 0x%04" PRIX16 "\n", crypt, _e22900txx_config.crypt);
@@ -588,8 +594,10 @@ static bool device_config(const e22900t22_config_t *config_device) {
         _e22900txx_config.packet_maxrate = E22900T22_CONFIG_PACKET_MAXRATE_DEFAULT;
     else if (_e22900txx_config.packet_maxrate > E22900T22_PACKET_MAXRATE_62500)
         return false;
+#ifdef E22900T22_SUPPORT_MODULE_DIP
     if (!_e22900txx_config.wor_cycle)
         _e22900txx_config.wor_cycle = E22900T22_CONFIG_WOR_CYCLE_DEFAULT;
+#endif
 #ifdef E22900T22_SUPPORT_MODULE_DIP
     if (_e22900txx_module == E22900T22_MODULE_DIP && (_e22900txx_config.set_pin_mx == NULL || _e22900txx_config.get_pin_aux == NULL))
         return false;
@@ -751,10 +759,12 @@ static const char *get_mode_transmit(const uint8_t reg) {
     return map[(reg >> 6) & 0x01];
 }
 
+#ifdef E22900T22_SUPPORT_MODULE_DIP
 static const char *get_wor_cycle(const uint8_t reg) {
     static const char *map[] = { "500ms", "1000ms", "1500ms", "2000ms (Default)", "2500ms", "3000ms", "3500ms", "4000ms" };
     return map[reg & 0x07];
 }
+#endif
 
 static const char *get_enabled(const uint8_t value) {
     return value > 0 ? "on" : "off";

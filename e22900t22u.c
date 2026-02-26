@@ -5,7 +5,7 @@
 /*
  * E22-900T22U Tester
  *
- * This program connects to an E22-900T22U LoRa module via serial port,
+ * This program connects to an E22-900T22U LoRa module (USB only) via serial port,
  * switches to configuration mode, reads its configuration registers in configuration mode, and updates
  * them as needed to match the desired configuration, then switches back to transmission mode.
  */
@@ -68,8 +68,6 @@ e22900t22_config_t e22900t22u_config = {
     .packet_maxsize = E22900T22_CONFIG_PACKET_MAXSIZE_DEFAULT,
     .packet_maxrate = E22900T22_CONFIG_PACKET_MAXRATE_DEFAULT,
     .crypt = E22900T22_CONFIG_CRYPT_DEFAULT,
-    .wor_enabled = E22900T22_CONFIG_WOR_ENABLED_DEFAULT,
-    .wor_cycle = E22900T22_CONFIG_WOR_CYCLE_DEFAULT,
     .transmit_power = E22900T22_CONFIG_TRANSMIT_POWER_DEFAULT,
     .transmission_method = E22900T22_CONFIG_TRANSMISSION_METHOD_DEFAULT,
     .relay_enabled = E22900T22_CONFIG_RELAY_ENABLED_DEFAULT,
