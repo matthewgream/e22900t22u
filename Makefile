@@ -1,10 +1,27 @@
 
-CC = gcc
-CFLAGS = -O6 -Wall -Wextra -Wpedantic
-LDFLAGS =
-TARGET = e22900t22u
+CC=gcc
+CFLAGS_DEFINES=
+CFLAGS_COMMON=-Wall -Wextra -Wpedantic
+CFLAGS_STRICT=-Werror \
+    -Wstrict-prototypes \
+    -Wold-style-definition \
+    -Wcast-align -Wcast-qual -Wconversion \
+    -Wfloat-equal -Wformat=2 -Wformat-security \
+    -Winit-self -Wjump-misses-init \
+    -Wlogical-op -Wmissing-include-dirs \
+    -Wnested-externs -Wpointer-arith \
+    -Wredundant-decls -Wshadow \
+    -Wstrict-overflow=2 -Wswitch-default \
+    -Wundef \
+    -Wunreachable-code -Wunused \
+    -Wwrite-strings
+CFLAGS_OPT=-O6
+CFLAGS_INCLUDES=
+CFLAGS=$(CFLAGS_COMMON) $(CFLAGS_STRICT) $(CFLAGS_DEFINES) $(CFLAGS_OPT) $(CFLAGS_INCLUDES)
+LDFLAGS=
+TARGET=e22900t22u
 SOURCES=include/serial_linux.h include/config_linux.h include/mqtt_linux.h include/util_linux.h include/e22xxxtxx.h
-HOSTNAME = $(shell hostname)
+HOSTNAME=$(shell hostname)
 
 ##
 

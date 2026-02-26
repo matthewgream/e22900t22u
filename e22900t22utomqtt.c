@@ -56,7 +56,7 @@ void printf_stderr(const char *format, ...) {
 #define E22900T22_SUPPORT_MODULE_USB
 #include "include/e22xxxtxx.h"
 
-void __sleep_ms(const unsigned long ms) { usleep(ms * 1000); }
+void __sleep_ms(const unsigned long ms) { usleep((useconds_t)ms * 1000); }
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
@@ -104,34 +104,33 @@ const struct option config_options [] = {
 };
 // clang-format on
 
-void config_populate_serial(serial_config_t *config) {
-    config->port = config_get_string("port", SERIAL_PORT_DEFAULT);
-    config->rate = config_get_integer("rate", SERIAL_RATE_DEFAULT);
-    config->bits = config_get_bits("bits", SERIAL_BITS_DEFAULT);
+void config_populate_serial(serial_config_t *cfg) {
+    cfg->port = config_get_string("port", SERIAL_PORT_DEFAULT);
+    cfg->rate = config_get_integer("rate", SERIAL_RATE_DEFAULT);
+    cfg->bits = config_get_bits("bits", SERIAL_BITS_DEFAULT);
 
-    printf("config: serial: port=%s, rate=%d, bits=%s\n", config->port, config->rate, serial_bits_str(config->bits));
+    printf("config: serial: port=%s, rate=%d, bits=%s\n", cfg->port, cfg->rate, serial_bits_str(cfg->bits));
 }
 
-void config_populate_e22900t22u(e22900t22_config_t *config) {
-    config->address = (unsigned short)config_get_integer("address", CONFIG_ADDRESS_DEFAULT);
-    config->network = (unsigned char)config_get_integer("network", CONFIG_NETWORK_DEFAULT);
-    config->channel = (unsigned char)config_get_integer("channel", CONFIG_CHANNEL_DEFAULT);
-    config->packet_maxsize = (unsigned char)config_get_integer("packet-size", CONFIG_PACKET_MAXSIZE_DEFAULT);
-    config->listen_before_transmit = config_get_bool("listen-before-transmit", CONFIG_LISTEN_BEFORE_TRANSMIT);
-    config->rssi_packet = config_get_bool("rssi-packet", CONFIG_RSSI_PACKET_DEFAULT);
-    config->rssi_channel = config_get_bool("rssi-channel", CONFIG_RSSI_CHANNEL_DEFAULT);
-    config->read_timeout_command =
+void config_populate_e22900t22u(e22900t22_config_t *cfg) {
+    cfg->address = (unsigned short)config_get_integer("address", CONFIG_ADDRESS_DEFAULT);
+    cfg->network = (unsigned char)config_get_integer("network", CONFIG_NETWORK_DEFAULT);
+    cfg->channel = (unsigned char)config_get_integer("channel", CONFIG_CHANNEL_DEFAULT);
+    cfg->packet_maxsize = (unsigned char)config_get_integer("packet-size", CONFIG_PACKET_MAXSIZE_DEFAULT);
+    cfg->listen_before_transmit = config_get_bool("listen-before-transmit", CONFIG_LISTEN_BEFORE_TRANSMIT);
+    cfg->rssi_packet = config_get_bool("rssi-packet", CONFIG_RSSI_PACKET_DEFAULT);
+    cfg->rssi_channel = config_get_bool("rssi-channel", CONFIG_RSSI_CHANNEL_DEFAULT);
+    cfg->read_timeout_command =
         (unsigned long)config_get_integer("read-timeout-command", CONFIG_READ_TIMEOUT_COMMAND_DEFAULT);
-    config->read_timeout_packet =
+    cfg->read_timeout_packet =
         (unsigned long)config_get_integer("read-timeout-packet", CONFIG_READ_TIMEOUT_PACKET_DEFAULT);
-    config->debug = config_get_bool("debug", false);
+    cfg->debug = config_get_bool("debug", false);
 
     printf("config: e22900t22u: address=0x%04x, network=0x%02x, channel=%d, packet-size=%d, rssi-channel=%s, "
            "rssi-packet=%s, mode-listen-before-tx=%s, read-timeout-command=%lu, read-timeout-packet=%lu, debug=%s\n",
-           config->address, config->network, config->channel, config->packet_maxsize,
-           config->rssi_channel ? "on" : "off", config->rssi_packet ? "on" : "off",
-           config->listen_before_transmit ? "on" : "off", config->read_timeout_command, config->read_timeout_packet,
-           config->debug ? "on" : "off");
+           cfg->address, cfg->network, cfg->channel, cfg->packet_maxsize, cfg->rssi_channel ? "on" : "off",
+           cfg->rssi_packet ? "on" : "off", cfg->listen_before_transmit ? "on" : "off", cfg->read_timeout_command,
+           cfg->read_timeout_packet, cfg->debug ? "on" : "off");
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
@@ -220,12 +219,12 @@ void config_populate_topic_routes(const char *topic_default) {
 }
 bool route_topic_match_json(const unsigned char *packet, const int packet_size, const char *key, const char *value) {
     char search_pattern[64 + 64 + 64];
-    int pattern_len = snprintf(search_pattern, sizeof(search_pattern), "\"%s\":\"%s\"", key, value);
+    const int pattern_len = snprintf(search_pattern, sizeof(search_pattern), "\"%s\":\"%s\"", key, value);
     if (pattern_len >= packet_size)
         return false;
-    const unsigned char first_char = search_pattern[0];
+    const unsigned char first_char = (unsigned char)search_pattern[0];
     for (int i = 0; i <= packet_size - pattern_len; i++)
-        if (packet[i] == first_char && memcmp(packet + i, search_pattern, pattern_len) == 0)
+        if (packet[i] == first_char && memcmp(packet + i, search_pattern, (size_t)pattern_len) == 0)
             return true;
     return false;
 }
@@ -238,7 +237,7 @@ bool route_topic_match_binary(const unsigned char *packet, const int packet_size
     unsigned char expected_value = 0;
     for (int i = 0; i < 2; i++) {
         char c = value[i];
-        unsigned char digit;
+        char digit;
         if (c >= '0' && c <= '9')
             digit = c - '0';
         else if (c >= 'a' && c <= 'f')
@@ -247,7 +246,7 @@ bool route_topic_match_binary(const unsigned char *packet, const int packet_size
             digit = c - 'A' + 10;
         else
             return false; // Invalid hex character
-        expected_value = (expected_value << 4) | digit;
+        expected_value = (expected_value << 4) | (unsigned char)digit;
     }
     return packet[offset] == expected_value;
 }
@@ -308,14 +307,14 @@ void read_and_send(volatile bool *running, const data_type_t data_type) {
                         stat_packets_drop++;
                         break;
                     }
-                    int data_offset = PACKET_BUFFER_MAX - packet_size;
-                    memmove(packet_buffer + data_offset, packet_buffer, packet_size);
+                    const int data_offset = PACKET_BUFFER_MAX - packet_size;
+                    memmove(packet_buffer + data_offset, packet_buffer, (size_t)packet_size);
                     packet_buffer[0] = '[';
                     packet_buffer[1] = '"';
                     for (int i = 0; i < packet_size; i++) {
                         const unsigned char byte = packet_buffer[data_offset + i];
-                        packet_buffer[2 + (i * 2)] = "0123456789abcdef"[byte >> 4];
-                        packet_buffer[2 + (i * 2) + 1] = "0123456789abcdef"[byte & 0x0f];
+                        packet_buffer[2 + (i * 2)] = (unsigned char)"0123456789abcdef"[byte >> 4];
+                        packet_buffer[2 + (i * 2) + 1] = (unsigned char)"0123456789abcdef"[byte & 0x0f];
                     }
                     packet_buffer[2 + (packet_size * 2)] = '"';
                     packet_buffer[2 + (packet_size * 2) + 1] = ']';
@@ -324,6 +323,7 @@ void read_and_send(volatile bool *running, const data_type_t data_type) {
                 deliver = true;
                 break;
             case DATA_TYPE_ANY:
+            default:
                 deliver = true;
                 break;
             }
@@ -354,7 +354,7 @@ void read_and_send(volatile bool *running, const data_type_t data_type) {
                 ema_update(channel_rssi, &stat_channel_rssi_ema, &stat_channel_rssi_cnt);
         }
 
-        int period_stat;
+        time_t period_stat;
         if (*running && (period_stat = intervalable(interval_stat, &interval_stat_last))) {
             printf("packets-okay=%ld (%.2f/min), packets-drop=%ld (%.2f/min)", stat_packets_okay,
                    ((float)stat_packets_okay / ((float)period_stat / 60.0f)), stat_packets_drop,
@@ -377,7 +377,7 @@ e22900t22_config_t e22900t22u_config;
 const char *mqtt_client, *mqtt_server;
 data_type_t data_type;
 
-bool config_setup(const int argc, const char *argv[]) {
+bool config_setup(int argc, char *argv[]) {
 
     if (!config_load(CONFIG_FILE_DEFAULT, argc, argv, config_options))
         return false;
@@ -413,7 +413,7 @@ void signal_handler(const int sig __attribute__((unused))) {
     }
 }
 
-int main(const int argc, const char *argv[]) {
+int main(int argc, char *argv[]) {
 
     setbuf(stdout, NULL);
     printf("starting\n");

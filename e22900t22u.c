@@ -48,7 +48,7 @@ void printf_stderr(const char *format, ...) {
 #define E22900T22_SUPPORT_MODULE_USB
 #include "include/e22xxxtxx.h"
 
-void __sleep_ms(const unsigned long ms) { usleep(ms * 1000); }
+void __sleep_ms(const unsigned long ms) { usleep((useconds_t)ms * 1000); }
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------

@@ -105,7 +105,7 @@ extern void __sleep_ms(const unsigned long ms);
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-bool device_wait_ready() {
+bool device_wait_ready(void) {
 #ifdef E22900T22_SUPPORT_MODULE_DIP
     if (module == E22900T22_MODULE_DIP) {
         static const unsigned long timeout_it = 1, timeout_ms = 30 * 1000;
@@ -165,7 +165,7 @@ bool device_cmd_send(const unsigned char *cmd, const int cmd_len) {
     return serial_write(cmd, cmd_len) == cmd_len;
 }
 
-int device_cmd_recv_response(unsigned char *buffer, const int buffer_length, const int timeout_ms) {
+int device_cmd_recv_response(unsigned char *buffer, const int buffer_length, const unsigned long timeout_ms) {
 
     const int read_len = serial_read(buffer, buffer_length, timeout_ms);
 
@@ -386,22 +386,22 @@ void device_product_info_display(const unsigned char *info) {
 #define DEVICE_MODULE_CONF_SIZE 9
 #define DEVICE_MODULE_CONF_SIZE_WRITE 7
 
-bool device_module_config_read(unsigned char *config) {
+bool device_module_config_read(unsigned char *cfg) {
     static const unsigned char cmd[] = {0xC1, 0x00, DEVICE_MODULE_CONF_SIZE};
-    return device_cmd_send_wrapper("read_module_config", cmd, sizeof(cmd), config, DEVICE_MODULE_CONF_SIZE);
+    return device_cmd_send_wrapper("read_module_config", cmd, sizeof(cmd), cfg, DEVICE_MODULE_CONF_SIZE);
 }
 
-bool device_module_config_write(const unsigned char *config) {
+bool device_module_config_write(const unsigned char *cfg) {
     unsigned char cmd[DEVICE_CMD_HEADER_SIZE + DEVICE_MODULE_CONF_SIZE_WRITE] = {0xC0, 0x00,
                                                                                  DEVICE_MODULE_CONF_SIZE_WRITE};
-    memcpy(cmd + DEVICE_CMD_HEADER_SIZE, config, DEVICE_MODULE_CONF_SIZE_WRITE);
+    memcpy(cmd + DEVICE_CMD_HEADER_SIZE, cfg, DEVICE_MODULE_CONF_SIZE_WRITE);
     unsigned char result[DEVICE_MODULE_CONF_SIZE_WRITE];
     if (!device_cmd_send_wrapper("write_module_config", cmd, sizeof(cmd), result, DEVICE_MODULE_CONF_SIZE_WRITE))
         return false;
     for (int i = 0; i < DEVICE_MODULE_CONF_SIZE_WRITE; i++) {
-        if (result[i] != config[i]) {
+        if (result[i] != cfg[i]) {
             PRINTF_ERROR("device: write_modify_config: verification failed at %d: %02X != %02X\n", i, result[i],
-                         config[i]);
+                         cfg[i]);
             return false;
         }
     }
@@ -444,11 +444,11 @@ void device_module_config_display(const unsigned char *config_device) {
 #endif
 
     PRINTF_INFO("uart-rate=%s, ", get_uart_rate(reg0));
-    PRINTF_INFO("uart-parity=%s, ", get_uart_parity(reg0));
+    PRINTF_INFO("uart-parity=%s", get_uart_parity(reg0));
 
 #ifdef E22900T22_SUPPORT_MODULE_USB
     if (module == E22900T22_MODULE_USB)
-        PRINTF_INFO("switch-config-serial=%s, ", get_enabled(reg1 & 0x04));
+        PRINTF_INFO(", switch-config-serial=%s", get_enabled(reg1 & 0x04));
 #endif
 
     PRINTF_INFO("\n");
@@ -547,9 +547,9 @@ bool device_connect(const e22900t22_module_t config_module, const e22900t22_conf
 
     return true;
 }
-void device_disconnect() { PRINTF_DEBUG("device: disconnected\n"); }
+void device_disconnect(void) { PRINTF_DEBUG("device: disconnected\n"); }
 
-bool device_info_read() {
+bool device_info_read(void) {
 
     unsigned char product_info[DEVICE_PRODUCT_INFO_SIZE];
 
@@ -570,21 +570,21 @@ bool device_info_read() {
     return true;
 }
 
-bool device_config_read_and_update() {
+bool device_config_read_and_update(void) {
 
-    unsigned char config[DEVICE_MODULE_CONF_SIZE];
+    unsigned char cfg[DEVICE_MODULE_CONF_SIZE];
 
-    if (!device_module_config_read(config)) {
+    if (!device_module_config_read(cfg)) {
         PRINTF_ERROR("device: failed to read module configuration\n");
         return false;
     }
 
-    device_module_config_display(config);
+    device_module_config_display(cfg);
 
-    if (update_configuration(config)) {
+    if (update_configuration(cfg)) {
 
         PRINTF_DEBUG("device: update module configuration\n");
-        if (!device_module_config_write(config)) {
+        if (!device_module_config_write(cfg)) {
             PRINTF_ERROR("device: failed to write module configuration\n");
             return false;
         }
@@ -592,8 +592,8 @@ bool device_config_read_and_update() {
         __sleep_ms(50);
 
         PRINTF_DEBUG("device: verify module configuration\n");
-        unsigned char config_2[DEVICE_MODULE_CONF_SIZE_WRITE];
-        if (!device_module_config_read(config_2) || memcmp(config, config_2, sizeof(config_2)) != 0) {
+        unsigned char cfg_2[DEVICE_MODULE_CONF_SIZE_WRITE];
+        if (!device_module_config_read(cfg_2) || memcmp(cfg, cfg_2, sizeof(cfg_2)) != 0) {
             PRINTF_ERROR("device: failed to verify module configuration\n");
             return false;
         }
@@ -754,9 +754,9 @@ float get_frequency(const unsigned char channel) {
     // case ??: return 220.125 + (channel * 0.25); // E22-230Txx
     // case ??: return 410.125 + (channel * 1.0); // E22-400Txx
     case 11:
-        return 850.125 + (channel * 1.0); // E22-900Txx
+        return 850.125f + (channel * 1.0f); // E22-900Txx
     default:
-        return 0.0;
+        return 0.0f;
     }
 }
 
