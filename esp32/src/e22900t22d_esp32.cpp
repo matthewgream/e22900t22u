@@ -13,7 +13,6 @@ typedef unsigned long counter_t;
 
 class Intervalable {
     interval_t _interval, _previous;
-    counter_t _exceeded = 0;
 
   public:
     explicit Intervalable(const interval_t interval = 0, const interval_t previous = 0) : _interval(interval), _previous(previous) {
@@ -26,45 +25,13 @@ class Intervalable {
         }
         return false;
     }
-    bool active() const {
-        return _interval > 0;
-    }
-    interval_t remaining() const {
-        const interval_t current = millis();
-        return _interval - (current - _previous);
-    }
-    bool passed(interval_t *interval = nullptr, const bool atstart = false) {
-        const interval_t current = millis();
-        if ((atstart && _previous == 0) || current - _previous > _interval) {
-            if (interval != nullptr)
-                (*interval) = current - _previous;
-            _previous = current;
-            return true;
-        }
-        return false;
-    }
-    void reset(const interval_t interval = std::numeric_limits<interval_t>::max()) {
-        if (interval != std::numeric_limits<interval_t>::max())
-            _interval = interval;
-        _previous = millis();
-    }
-    void setat(const interval_t place) {
-        _previous = millis() - ((_interval - place) % _interval);
-    }
     void wait() {
         const interval_t current = millis();
         if (current - _previous < _interval)
             delay(_interval - (current - _previous));
-        else if (_previous > 0)
-            _exceeded++;
         _previous = millis();
     }
-    counter_t exceeded() const {
-        return _exceeded;
-    }
 };
-
-#include <esp_mac.h>
 
 template <size_t N> String BytesToHexString(const uint8_t bytes[], const char *separator = ":") {
     constexpr size_t separator_max = 1; // change if needed
@@ -82,6 +49,8 @@ template <size_t N> String BytesToHexString(const uint8_t bytes[], const char *s
     *buffer_ptr = '\0';
     return String(buffer);
 }
+
+#include <esp_mac.h>
 
 String getMacAddressBase(const char *separator = ":") {
     uint8_t macaddr[6];
@@ -101,10 +70,6 @@ static inline constexpr gpio_num_t PIN_E22900T22D_AUX = GPIO_NUM_21;
 #define PRINTF_DEBUG Serial.printf
 #define PRINTF_INFO  Serial.printf
 #define PRINTF_ERROR Serial.printf
-
-void __sleep_ms(const uint32_t ms) {
-    delay(ms);
-}
 
 // -----------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------
@@ -131,12 +96,12 @@ void serial_flush(void) {
         serial_hw.read();
 }
 
-int serial_write(const unsigned char *buffer, const int length) {
-    __sleep_ms(50); // yuck
+int serial_write(const uint8_t *buffer, const int length) {
+    delay(50); // yuck
     return serial_hw.write(buffer, length);
 }
 
-int serial_read(unsigned char *buffer, const int length, const int timeout_ms) {
+int serial_read(uint8_t *buffer, const int length, const uint32_t timeout_ms) {
     // yuck, ignoring timeout_ms
     return serial_hw.readBytes(buffer, length);
 }
@@ -147,6 +112,9 @@ int serial_read(unsigned char *buffer, const int length, const int timeout_ms) {
 #define E22900T22_SUPPORT_MODULE_DIP
 #undef E22900T22_SUPPORT_MODULE_USB
 #include "../../include/e22xxxtxx.h"
+void __sleep_ms(const uint32_t ms) {
+    delay(ms);
+}
 
 void e22900t22d_cfg_pin() {
     pinMode(PIN_E22900T22D_M0, OUTPUT);
@@ -170,6 +138,7 @@ e22900t22_config_t e22900t22u_config = {
     .network = 0x00,
     .channel = 0x17, // Channel 23 (850.125 + 23 = 873.125 MHz)
     .packet_maxsize = E22900T22_CONFIG_PACKET_MAXSIZE_DEFAULT,
+    .packet_maxrate = E22900T22_CONFIG_PACKET_MAXRATE_DEFAULT,
     .listen_before_transmit = true,
     .rssi_packet = true,
     .rssi_channel = true,
@@ -214,7 +183,7 @@ Intervalable ping(30 * 1000);
 void loop() {
     secs.wait();
 
-    unsigned char rssi;
+    uint8_t rssi;
     if (!device_channel_rssi_read(&rssi))
         PRINTF_ERROR("loop: device_channel_rssi_read failed\n");
     else
@@ -229,7 +198,7 @@ void loop() {
         jsonDoc["ping"]["counts"] = counts++;
         serializeJson(jsonDoc, jsonStr);
         PRINTF_INFO("loop: device_packet_write <<<%s>>>\n", jsonStr.c_str());
-        if (!device_packet_write((const unsigned char *)jsonStr.c_str(), jsonStr.length()))
+        if (!device_packet_write((const uint8_t *)jsonStr.c_str(), jsonStr.length()))
             PRINTF_ERROR("loop: device_packet_write failed\n");
     }
 }
