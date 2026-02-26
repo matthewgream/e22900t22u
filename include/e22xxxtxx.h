@@ -15,7 +15,19 @@
 #error "both E22900T22_SUPPORT_NO_TRANSMIT and E22900T22_SUPPORT_NO_RECEIVE defined"
 #endif
 
-#define E22900T22_PACKET_MAXSIZE 240
+#define E22900T22_PACKET_MAXSIZE_32 32
+#define E22900T22_PACKET_MAXSIZE_64 64
+#define E22900T22_PACKET_MAXSIZE_128 128
+#define E22900T22_PACKET_MAXSIZE_240 240
+#define E22900T22_PACKET_MAXSIZE E22900T22_PACKET_MAXSIZE_240
+
+#define E22900T22_PACKET_MAXRATE_2400 2
+#define E22900T22_PACKET_MAXRATE_4800 4
+#define E22900T22_PACKET_MAXRATE_9600 9
+#define E22900T22_PACKET_MAXRATE_19200 19
+#define E22900T22_PACKET_MAXRATE_38400 38
+#define E22900T22_PACKET_MAXRATE_62500 62
+#define E22900T22_PACKET_MAXRATE E22900T22_PACKET_MAXRATE_62500
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
@@ -28,7 +40,8 @@
 #define CONFIG_RSSI_CHANNEL_DEFAULT true
 #define CONFIG_READ_TIMEOUT_COMMAND_DEFAULT 1000
 #define CONFIG_READ_TIMEOUT_PACKET_DEFAULT 5000
-#define CONFIG_PACKET_MAXSIZE_DEFAULT E22900T22_PACKET_MAXSIZE
+#define CONFIG_PACKET_MAXSIZE_DEFAULT E22900T22_PACKET_MAXSIZE_240
+#define CONFIG_PACKET_MAXRATE_DEFAULT E22900T22_PACKET_MAXRATE_2400
 
 typedef struct {
     unsigned short name;
@@ -42,6 +55,7 @@ typedef struct {
     unsigned char network;
     unsigned char channel;
     unsigned char packet_maxsize;
+    unsigned char packet_maxrate;
     bool listen_before_transmit;
     bool rssi_packet, rssi_channel;
     unsigned long read_timeout_command, read_timeout_packet;
@@ -484,6 +498,9 @@ bool update_configuration(unsigned char *config_device) {
         PRINTF_INFO("device: update_configuration: network: 0x%02X --> 0x%02X\n", network, config.network);
         config_device[2] = config.network;
     }
+    // XXX config_device[3] // packet_rate
+    // XXX config_device[4] // packet_size
+
     const unsigned char channel = config_device[5];
     if (channel != config.channel) {
         PRINTF_INFO("device: update_configuration: channel: %d (%.3fMHz) --> %d (%.3fMHz)\n", channel,
@@ -515,7 +532,11 @@ bool device_config(const e22900t22_config_t *config_device) {
         config.read_timeout_packet = CONFIG_READ_TIMEOUT_PACKET_DEFAULT;
     if (!config.packet_maxsize)
         config.packet_maxsize = CONFIG_PACKET_MAXSIZE_DEFAULT;
-    else if (config.packet_maxsize > E22900T22_PACKET_MAXSIZE)
+    else if (config.packet_maxsize > E22900T22_PACKET_MAXSIZE_240)
+        return false;
+    if (!config.packet_maxrate)
+        config.packet_maxrate = CONFIG_PACKET_MAXRATE_DEFAULT;
+    else if (config.packet_maxrate > E22900T22_PACKET_MAXRATE_62500)
         return false;
 #ifdef E22900T22_SUPPORT_MODULE_DIP
     if (module == E22900T22_MODULE_DIP && (config.set_pin_mx == NULL || config.get_pin_aux == NULL))
@@ -606,7 +627,7 @@ void device_packet_read_and_display(volatile bool *is_active) {
 
     PRINTF_DEBUG("device: packet read and display (with periodic channel_rssi)\n");
 
-    static const int max_packet_size = E22900T22_PACKET_MAXSIZE + 1; // RSSI
+    static const int max_packet_size = E22900T22_PACKET_MAXSIZE_240 + 1; // RSSI
     unsigned char packet_buffer[max_packet_size];
     int packet_size;
     unsigned char rssi;

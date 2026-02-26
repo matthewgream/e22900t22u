@@ -64,6 +64,7 @@ e22900t22_config_t e22900t22u_config = {
     .network = 0x00,
     .channel = 0x17, // Channel 23 (850.125 + 23 = 873.125 MHz)
     .packet_maxsize = CONFIG_PACKET_MAXSIZE_DEFAULT,
+    .packet_maxrate = CONFIG_PACKET_MAXRATE_DEFAULT,
     .listen_before_transmit = false,
     .rssi_packet = true,
     .rssi_channel = true,

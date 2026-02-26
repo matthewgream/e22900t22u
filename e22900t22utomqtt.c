@@ -90,6 +90,7 @@ const struct option config_options [] = {
     {"network",               required_argument, 0, 0},
     {"channel",               required_argument, 0, 0},
     {"packet-size",           required_argument, 0, 0},
+    {"packet-rate",           required_argument, 0, 0},
     {"listen-before-transmit",required_argument, 0, 0},
     {"rssi-packet",           required_argument, 0, 0},
     {"rssi-channel",          required_argument, 0, 0},
@@ -117,6 +118,7 @@ void config_populate_e22900t22u(e22900t22_config_t *cfg) {
     cfg->network = (unsigned char)config_get_integer("network", CONFIG_NETWORK_DEFAULT);
     cfg->channel = (unsigned char)config_get_integer("channel", CONFIG_CHANNEL_DEFAULT);
     cfg->packet_maxsize = (unsigned char)config_get_integer("packet-size", CONFIG_PACKET_MAXSIZE_DEFAULT);
+    cfg->packet_maxrate = (unsigned char)config_get_integer("packet-rate", CONFIG_PACKET_MAXRATE_DEFAULT);
     cfg->listen_before_transmit = config_get_bool("listen-before-transmit", CONFIG_LISTEN_BEFORE_TRANSMIT);
     cfg->rssi_packet = config_get_bool("rssi-packet", CONFIG_RSSI_PACKET_DEFAULT);
     cfg->rssi_channel = config_get_bool("rssi-channel", CONFIG_RSSI_CHANNEL_DEFAULT);
@@ -126,11 +128,13 @@ void config_populate_e22900t22u(e22900t22_config_t *cfg) {
         (unsigned long)config_get_integer("read-timeout-packet", CONFIG_READ_TIMEOUT_PACKET_DEFAULT);
     cfg->debug = config_get_bool("debug", false);
 
-    printf("config: e22900t22u: address=0x%04x, network=0x%02x, channel=%d, packet-size=%d, rssi-channel=%s, "
+    printf("config: e22900t22u: address=0x%04x, network=0x%02x, channel=%d, packet-size=%d, packet-rate=%d, "
+           "rssi-channel=%s, "
            "rssi-packet=%s, mode-listen-before-tx=%s, read-timeout-command=%lu, read-timeout-packet=%lu, debug=%s\n",
-           cfg->address, cfg->network, cfg->channel, cfg->packet_maxsize, cfg->rssi_channel ? "on" : "off",
-           cfg->rssi_packet ? "on" : "off", cfg->listen_before_transmit ? "on" : "off", cfg->read_timeout_command,
-           cfg->read_timeout_packet, cfg->debug ? "on" : "off");
+           cfg->address, cfg->network, cfg->channel, cfg->packet_maxsize, cfg->packet_maxrate,
+           cfg->rssi_channel ? "on" : "off", cfg->rssi_packet ? "on" : "off",
+           cfg->listen_before_transmit ? "on" : "off", cfg->read_timeout_command, cfg->read_timeout_packet,
+           cfg->debug ? "on" : "off");
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
@@ -274,7 +278,7 @@ unsigned char stat_channel_rssi_ema, stat_packet_rssi_ema;
 unsigned long stat_packets_okay = 0, stat_packets_drop = 0;
 time_t interval_stat = 0, interval_stat_last = 0;
 time_t interval_rssi = 0, interval_rssi_last = 0;
-#define PACKET_BUFFER_MAX ((E22900T22_PACKET_MAXSIZE * 2) + 4) // has +1 for RSSI; adds 2 for '["' <HEX> '"]'
+#define PACKET_BUFFER_MAX ((E22900T22_PACKET_MAXSIZE_240 * 2) + 4) // has +1 for RSSI; adds 2 for '["' <HEX> '"]'
 
 void read_and_send(volatile bool *running, const data_type_t data_type) {
 
