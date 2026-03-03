@@ -15,17 +15,17 @@ CFLAGS_STRICT=-Werror \
     -Wundef \
     -Wunreachable-code -Wunused \
     -Wwrite-strings
-CFLAGS_OPT=-O6
+CFLAGS_OPT=-O3
 CFLAGS_INCLUDES=
-CC_MACHINE := $(shell $(CC) -dumpmachine)
+CC_MACHINE:=$(shell $(CC) -dumpmachine)
 ifneq ($(findstring x86_64,$(CC_MACHINE)),)
-    CFLAGS_NO_FLOATING_POINT = -mno-sse -mno-mmx -mno-80387
+    CFLAGS_NO_FLOATING_POINT=-mno-sse -mno-mmx -mno-80387
 else ifneq ($(findstring i686,$(CC_MACHINE)),)
-    CFLAGS_NO_FLOATING_POINT = -mno-sse -mno-mmx -mno-80387
+    CFLAGS_NO_FLOATING_POINT=-mno-sse -mno-mmx -mno-80387
 else ifneq ($(findstring i386,$(CC_MACHINE)),)
-    CFLAGS_NO_FLOATING_POINT = -mno-sse -mno-mmx -mno-80387
+    CFLAGS_NO_FLOATING_POINT=-mno-sse -mno-mmx -mno-80387
 else
-    CFLAGS_NO_FLOATING_POINT =
+    CFLAGS_NO_FLOATING_POINT=
 endif
 CFLAGS=$(CFLAGS_COMMON) $(CFLAGS_STRICT) $(CFLAGS_DEFINES) $(CFLAGS_OPT) $(CFLAGS_INCLUDES) $(CFLAGS_NO_FLOATING_POINT)
 LDFLAGS=

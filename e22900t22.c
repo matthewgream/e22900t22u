@@ -30,9 +30,11 @@
 
 #if defined(E22900T22_SUPPORT_MODULE_DIP)
 #include <gpiod.h>
-#define SERIAL_PORT "/dev/ttyAMA0"
+#define SERIAL_PORT      "/dev/ttyAMA0"
+#define E22900T22_MODULE E22900T22_MODULE_DIP
 #elif defined(E22900T22_SUPPORT_MODULE_USB)
-#define SERIAL_PORT "/dev/e22900t22u"
+#define SERIAL_PORT      "/dev/e22900t22u"
+#define E22900T22_MODULE E22900T22_MODULE_USB
 #endif
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
@@ -158,7 +160,7 @@ bool gpio_get_pin_aux(void) {
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
 serial_config_t serial_config = {
-    .port = "/dev/ttyAMA0",
+    .port = SERIAL_PORT,
     .rate = 9600,
     .bits = SERIAL_8N1,
 };
@@ -177,7 +179,7 @@ e22900t22_config_t e22900t22_config = {
     .transmit_power = E22900T22_CONFIG_TRANSMIT_POWER_DEFAULT,
     .transmission_method = E22900T22_CONFIG_TRANSMISSION_METHOD_DEFAULT,
     .relay_enabled = E22900T22_CONFIG_RELAY_ENABLED_DEFAULT,
-    .listen_before_transmit = false,
+    .listen_before_transmit = true,
     .rssi_packet = true,
     .rssi_channel = true,
     .read_timeout_command = E22900T22_CONFIG_READ_TIMEOUT_COMMAND_DEFAULT,
@@ -221,7 +223,7 @@ int main(int argc __attribute__((unused)), char *argv[] __attribute__((unused)))
         goto exit_fail_gpio;
     }
 
-    if (!device_connect(E22900T22_MODULE_DIP, &e22900t22_config))
+    if (!device_connect(E22900T22_MODULE, &e22900t22_config))
         goto exit_fail_serial;
     printf("device: connected (port=%s, rate=%d, bits=%s)\n", serial_config.port, serial_config.rate, serial_bits_str(serial_config.bits));
     if (!(device_mode_config() && device_info_read() && device_config_read_and_update() && device_mode_transfer()))
