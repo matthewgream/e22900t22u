@@ -22,5 +22,5 @@ Greenfield implementation, not based upon others: see LICENSE (Attribution-NonCo
 NOTE: for the USB variant, you will to enable "Software Mode Switching", which is disabled by default,
 otherwise the Connector is not able to configure the device. You need to hold the touch switch for more
 than 1.5s to force the device into configuration mode, then start the Connector, which will then set
-(and persist) "Software Mode Switching".
+(and persist) "Software Mode Switching" so that manual intervention is no longer required.
 
