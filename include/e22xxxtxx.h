@@ -263,10 +263,9 @@ static bool device_channel_rssi_read(uint8_t *rssi) {
 
     static const char *name = "channel_rssi_read";
     static const uint8_t command[] = { 0xC0, 0xC1, 0xC2, 0xC3, 0x00, 0x01 };
-    static const int command_length = sizeof(command);
 
     serial_flush();
-    if (serial_write(command, command_length) != command_length) {
+    if (serial_write(command, sizeof(command)) != sizeof(command)) {
         PRINTF_ERROR("device: %s: failed to send command\n", name);
         return false;
     }
@@ -297,8 +296,8 @@ static void device_channel_rssi_display(uint8_t rssi) {
 typedef enum {
     DEVICE_MODE_CONFIG = 0,
     DEVICE_MODE_TRANSFER = 1,
-    // DEVICE_MODE_WOR
-    // DEVICE_MODE_DEEPSLEEP
+    DEVICE_MODE_WOR = 2,
+    DEVICE_MODE_DEEPSLEEP = 3,
 } device_mode_t;
 
 static const char *device_mode_str(const device_mode_t mode) {
@@ -307,6 +306,10 @@ static const char *device_mode_str(const device_mode_t mode) {
         return "config";
     case DEVICE_MODE_TRANSFER:
         return "transfer";
+    case DEVICE_MODE_WOR:
+        return "wor";
+    case DEVICE_MODE_DEEPSLEEP:
+        return "deepsleep";
     default:
         return "unknown";
     }
@@ -314,21 +317,37 @@ static const char *device_mode_str(const device_mode_t mode) {
 
 #ifdef E22900T22_SUPPORT_MODULE_USB
 static bool device_mode_switch_impl_software(const device_mode_t mode) {
-    static const uint8_t cmd_switch_config[] = { 0xC0, 0xC1, 0xC2, 0xC3, 0x02, 0x01 };
-    static const uint8_t cmd_switch_transfer[] = { 0xC0, 0xC1, 0xC2, 0xC3, 0x02, 0x00 };
-
     static const char *name = "mode_switch_software";
-    const uint8_t *command = (mode == DEVICE_MODE_CONFIG) ? cmd_switch_config : cmd_switch_transfer;
-    const int command_length = (mode == DEVICE_MODE_CONFIG) ? sizeof(cmd_switch_config) : sizeof(cmd_switch_transfer);
+
+    uint8_t mode_byte;
+    switch (mode) {
+    case DEVICE_MODE_TRANSFER:
+        mode_byte = 0x00;
+        break;
+    case DEVICE_MODE_CONFIG:
+        mode_byte = 0x01;
+        break;
+    case DEVICE_MODE_WOR:
+        mode_byte = 0x02;
+        break;
+    case DEVICE_MODE_DEEPSLEEP:
+        mode_byte = 0x03;
+        break;
+    default:
+        PRINTF_ERROR("device: %s: unknown mode %d\n", name, mode);
+        return false;
+    }
+
+    const uint8_t command[] = { 0xC0, 0xC1, 0xC2, 0xC3, 0x02, mode_byte };
 
     serial_flush();
-    if (!device_cmd_send(command, command_length)) {
+    if (!device_cmd_send(command, sizeof(command))) {
         PRINTF_ERROR("device: %s: failed to send command\n", name);
         return false;
     }
 
     uint8_t buffer[64]; // XXX
-    const int length = command_length - 1;
+    const int length = sizeof(command) - 1;
     const int read_len = device_cmd_recv_response(buffer, length, _e22900txx_config.read_timeout_command);
     if (read_len == 3 && (buffer[0] == 0xFF && buffer[1] == 0xFF && buffer[2] == 0xFF)) {
         PRINTF_INFO("device: %s: already appears to be in required mode, will accept\n", name);
@@ -353,10 +372,23 @@ static bool device_mode_switch_impl_hardware(const device_mode_t mode) {
         PRINTF_ERROR("device: %s: wait_ready timeout (pre switch)\n", name);
         return false;
     }
-    if (mode == DEVICE_MODE_CONFIG)
-        _e22900txx_config.set_pin_mx(false, true);
-    else
-        _e22900txx_config.set_pin_mx(false, false);
+    switch (mode) {
+    case DEVICE_MODE_TRANSFER:
+        _e22900txx_config.set_pin_mx(false, false); // M0=0, M1=0
+        break;
+    case DEVICE_MODE_WOR:
+        _e22900txx_config.set_pin_mx(true, false); // M0=1, M1=0
+        break;
+    case DEVICE_MODE_CONFIG:
+        _e22900txx_config.set_pin_mx(false, true); // M0=0, M1=1
+        break;
+    case DEVICE_MODE_DEEPSLEEP:
+        _e22900txx_config.set_pin_mx(true, true); // M0=1, M1=1
+        break;
+    default:
+        PRINTF_ERROR("device: %s: unknown mode %d\n", name, mode);
+        return false;
+    }
     if (!device_wait_ready()) {
         PRINTF_ERROR("device: %s: wait_ready timeout (post switch)\n", name);
         return false;
@@ -388,6 +420,14 @@ static bool device_mode_config(void) {
 
 static bool device_mode_transfer(void) {
     return device_mode_switch(DEVICE_MODE_TRANSFER);
+}
+
+static bool device_mode_wor(void) {
+    return device_mode_switch(DEVICE_MODE_WOR);
+}
+
+static bool device_mode_deepsleep(void) {
+    return device_mode_switch(DEVICE_MODE_DEEPSLEEP);
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------------

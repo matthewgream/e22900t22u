@@ -133,12 +133,18 @@ bool e22900t22d_get_pin_aux(void) {
     return digitalRead(PIN_E22900T22D_AUX) == HIGH ? true : false;
 }
 
-e22900t22_config_t e22900t22u_config = {
+e22900t22_config_t e22900t22_config = {
     .address = 0x0008,
     .network = 0x00,
     .channel = 0x17, // Channel 23 (850.125 + 23 = 873.125 MHz)
     .packet_size = E22900T22_CONFIG_PACKET_SIZE_DEFAULT,
     .packet_rate = E22900T22_CONFIG_PACKET_RATE_DEFAULT,
+    .crypt = E22900T22_CONFIG_CRYPT_DEFAULT,
+    .wor_enabled = E22900T22_CONFIG_WOR_ENABLED_DEFAULT,
+    .wor_cycle = E22900T22_CONFIG_WOR_CYCLE_DEFAULT,
+    .transmit_power = E22900T22_CONFIG_TRANSMIT_POWER_DEFAULT,
+    .transmission_method = E22900T22_CONFIG_TRANSMISSION_METHOD_DEFAULT,
+    .relay_enabled = E22900T22_CONFIG_RELAY_ENABLED_DEFAULT,
     .listen_before_transmit = true,
     .rssi_packet = true,
     .rssi_channel = true,
@@ -165,7 +171,7 @@ void setup() {
     e22900t22d_cfg_pin();
     serial_connect();
 
-    if (!device_connect(E22900T22_MODULE_DIP, &e22900t22u_config)) {
+    if (!device_connect(E22900T22_MODULE_DIP, &e22900t22_config)) {
         PRINTF_ERROR("setup: device_connect failed\n");
         halt();
     }
