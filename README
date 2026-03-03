@@ -1,13 +1,21 @@
 
-Connector for EBYTE E22-xxxTxxU/D devices, for USB module (Linux) and DIP module (ESP32).
+Connector for EBYTE E22-xxxTxxU/D devices, for USB module (Linux) and DIP module (Linux/ESP32).
 
 Tested with E22-900T22U (USB), E22-900T22D (DIP) and E22-900T30D (DIP) devices, see specs directory.
 
-Should work for entire family: 230, 400 and 900 frequency and 20, 22, 30 and 33 dbm power varients.
+Should work for entire family: 230, 400 and 900 frequency and 20, 22, 30 and 33 dbm power variants.
+
+The E22 is the more featured product, compared to the E220 and E32 versions, which would also work
+with this connector with some minor modifications (the E220 lacks the NETID configuration field, 
+making it one byte shorter). Both E220 and E32 lack repeater functionality. E32 also lacks RSSI.
+
+E22 is based on the new Semtech SX1262, and E220 on the older Semtech SX1276. E32 is based on "low
+cost" Semtech LLCC68.
 
 Further information at https://www.cdebyte.com/Module-SPISOCUART-SX12.
 
-Linux version has a command line tester and a 'tomqtt' version with udev and systemd configuration files.
+Linux version has command line testers for USB and DIP and a 'tomqtt' version with udev and systemd
+configuration files.
 
 Greenfield implementation, not based upon others: see LICENSE (Attribution-NonCommercial-ShareAlike).
 
