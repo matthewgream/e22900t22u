@@ -73,8 +73,8 @@ define install_systemd_service
 endef
 install_systemd_service: $(TARGET)tomqtt.service
 	$(call install_systemd_service,$(TARGET)tomqtt,$(TARGET)tomqtt)
-install_udev_rules: 90-$(TARGET).rules
-	cp 90-$(TARGET).rules $(UDEVRULES_DIR)
+install_udev_rules: 90-$(TARGET)u.rules
+	cp 90-$(TARGET)u.rules $(UDEVRULES_DIR)
 	udevadm control --reload-rules
 	udevadm trigger
 install: install_udev_rules install_systemd_service
