@@ -35,21 +35,25 @@ HOSTNAME=$(shell hostname)
 
 ##
 
-all: $(TARGET) $(TARGET)tomqtt
+all: $(TARGET)-usb $(TARGET)-dip $(TARGET)tomqtt
 
-$(TARGET): $(TARGET).c $(SOURCES)
-	$(CC) $(CFLAGS) -o $(TARGET) $(TARGET).c $(LDFLAGS)
+$(TARGET)-usb: $(TARGET).c $(SOURCES)
+	$(CC) $(CFLAGS) -DE22900T22_SUPPORT_MODULE_USB -o $(TARGET)-usb $(TARGET).c $(LDFLAGS)
+$(TARGET)-dip: $(TARGET).c $(SOURCES)
+	$(CC) $(CFLAGS) -DE22900T22_SUPPORT_MODULE_DIP -o $(TARGET)-dip $(TARGET).c $(LDFLAGS) -lgpiod
 $(TARGET)tomqtt: $(TARGET)tomqtt.c $(SOURCES)
 	$(CC) $(CFLAGS) -o $(TARGET)tomqtt $(TARGET)tomqtt.c $(LDFLAGS) -lmosquitto
 clean:
-	rm -f $(TARGET) $(TARGET)tomqtt
+	rm -f $(TARGET)-usb $(TARGET)-dip $(TARGET)tomqtt
 format:
 	clang-format -i *.c include/*.h esp32/src/*cpp
-test: $(TARGET)
-	./$(TARGET)
+test-usb: $(TARGET)-usb
+	./$(TARGET)-usb
+test-dip: $(TARGET)-dip
+	./$(TARGET)-dip
 testmqtt: $(TARGET)tomqtt
 	./$(TARGET)tomqtt --config=$(TARGET)tomqtt.cfg-$(HOSTNAME) --debug=true
-.PHONY: all clean format test lint
+.PHONY: all clean format test-usb test-dip testmqtt
 
 ##
 

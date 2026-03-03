@@ -286,7 +286,7 @@ void read_and_send(volatile bool *running, const data_type_t data_type) {
     uint8_t packet_buffer[PACKET_BUFFER_MAX];
     int packet_size;
 
-    printf("read-and-publish (stat=%lds, rssi=%lds [packets=%c, channel=%c], data-type=%s)\n", interval_stat, interval_rssi, capture_rssi_packet ? 'y' : 'n', capture_rssi_channel ? 'y' : 'n', data_type_tostring(data_type));
+    printf("read-and-publish (stat=%" PRIu32 "s, rssi=%" PRIu32 "s [packets=%c, channel=%c], data-type=%s)\n", (uint32_t) interval_stat, (uint32_t) interval_rssi, capture_rssi_packet ? 'y' : 'n', capture_rssi_channel ? 'y' : 'n', data_type_tostring(data_type));
 
     while (*running) {
 
