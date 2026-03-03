@@ -502,14 +502,27 @@ static void device_module_config_display(const uint8_t *config_device) {
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-static void __update_config_bool(const char *name, uint8_t *byte, const uint8_t bits, const bool setting) {
-    const bool value = (bool)(*byte & bits);
-    if (value != setting) {
-        PRINTF_INFO("device: update_configuration: %s: %s --> %s\n", name, get_enabled(value), get_enabled(setting));
-        if (setting)
-            *byte |= bits;
-        else
-            *byte &= ~bits;
+static void __update_config_bits(const char *name, uint8_t *base, const uint8_t bit_offset, const uint8_t bit_width, const uint16_t setting) {
+    const uint16_t mask = (uint16_t)((1U << bit_width) - 1), setting_masked = setting & mask;
+
+    uint16_t raw = (bit_offset + bit_width > 8) ? (uint16_t)((uint16_t)base[0] << 8) | base[1] : base[0];
+    const uint16_t value = (raw >> bit_offset) & mask;
+    if (value == setting_masked)
+        return;
+
+    if (bit_width == 1)
+        PRINTF_INFO("device: update_configuration: %s: %s --> %s\n", name, get_enabled((uint8_t)value), get_enabled((uint8_t)setting_masked));
+    else if (bit_width <= 8)
+        PRINTF_INFO("device: update_configuration: %s: 0x%02" PRIX8 " --> 0x%02" PRIX8 "\n", name, (uint8_t)value, (uint8_t)setting_masked);
+    else
+        PRINTF_INFO("device: update_configuration: %s: 0x%04" PRIX16 " --> 0x%04" PRIX16 "\n", name, value, setting_masked);
+
+    raw = (raw & (uint16_t)~(uint16_t)(mask << bit_offset)) | (uint16_t)(setting_masked << bit_offset);
+    if (bit_offset + bit_width > 8) {
+        base[0] = (uint8_t)(raw >> 8);
+        base[1] = (uint8_t)(raw & 0xFF);
+    } else {
+        base[0] = (uint8_t)raw;
     }
 }
 
@@ -518,63 +531,43 @@ static bool update_configuration(uint8_t *config_device) {
     uint8_t config_device_orig[E22900T22_DEVICE_MOD_CONF_SIZE_WRITE];
     memcpy(config_device_orig, config_device, E22900T22_DEVICE_MOD_CONF_SIZE_WRITE);
 
-    const uint16_t address = (uint16_t)config_device[0] << 8 | config_device[1];
-    if (address != _e22900txx_config.address) {
-        PRINTF_INFO("device: update_configuration: address: 0x%04" PRIX16 " --> 0x%04" PRIX16 "\n", address, _e22900txx_config.address);
-        config_device[0] = (uint8_t)(_e22900txx_config.address >> 8);
-        config_device[1] = (uint8_t)(_e22900txx_config.address & 0xFF);
-    }
-    const uint8_t network = config_device[2];
-    if (network != _e22900txx_config.network) {
-        PRINTF_INFO("device: update_configuration: network: 0x%02" PRIX8 " --> 0x%02" PRIX8 "\n", network, _e22900txx_config.network);
-        config_device[2] = _e22900txx_config.network;
-    }
-    // XXX config_device[3] // serial_port_rate (7/6/5) / serial_port_bits (4/3)
-    // XXX config_device[3] // packet_rate (2/1/0)
-    // XXX config_device[4] // packet_size (7/6)
-    __update_config_bool("rssi-channel", &config_device[4], 0x20, _e22900txx_config.rssi_channel);
-    // XXX config_device[4] // reserved (4/3)
+    // [0:1] ADDH/ADDL, [2] NETID
+    __update_config_bits("address", &config_device[0], 0, 16, _e22900txx_config.address);
+    __update_config_bits("network", &config_device[2], 0, 8, (uint16_t)_e22900txx_config.network);
+
+    // [3] REG0: uart_rate (7:5), uart_parity (4:3), packet_rate (2:0)
+    // XXX uart_rate
+    // XXX uart_parity
+    // XXX packet_rate
+
+    // [4] REG1: packet_size (7:6), rssi_channel (5), reserved (4:3), switch_config_serial (2), transmit_power (1:0)
+    // XXX packet_size
+    __update_config_bits("rssi-channel", &config_device[4], 5, 1, (uint16_t)_e22900txx_config.rssi_channel);
 #ifdef E22900T22_SUPPORT_MODULE_USB
     if (_e22900txx_module == E22900T22_MODULE_USB)
-        __update_config_bool("switch-config-serial", &config_device[4], 0x04, true);
+        __update_config_bits("switch-config-serial", &config_device[4], 2, 1, 1);
 #endif
-    const uint8_t transmit_power = config_device[4] & 0x03;
-    if (transmit_power != _e22900txx_config.transmit_power) {
-        const uint8_t transmit_power_b = _e22900txx_config.transmit_power & 0x03;
-        PRINTF_INFO("device: update_configuration: transmit-power: %" PRIu8 " (%s) --> %" PRIu8 " (%s)\n", transmit_power, get_transmit_power(transmit_power), transmit_power_b, get_transmit_power(transmit_power_b));
-        config_device[4] = (config_device[4] ^ transmit_power) | transmit_power_b;
-    }
+    __update_config_bits("transmit-power", &config_device[4], 0, 2, (uint16_t)_e22900txx_config.transmit_power);
 
-    const uint8_t channel = config_device[5];
-    if (channel != _e22900txx_config.channel) {
-        const uint32_t freq_a = get_frequency1000(channel), freq_b = get_frequency1000(_e22900txx_config.channel);
-        PRINTF_INFO("device: update_configuration: channel: %d (%" PRIu32 ".%03" PRIu32 "MHz) --> %d (%" PRIu32 ".%03" PRIu32 "MHz)\n", channel, freq_a / 1000, freq_a % 1000, _e22900txx_config.channel, freq_b / 1000, freq_b % 1000);
-        config_device[5] = _e22900txx_config.channel;
-    }
+    // [5] REG2: channel (7:0)
+    __update_config_bits("channel", &config_device[5], 0, 8, (uint16_t)_e22900txx_config.channel);
 
-    __update_config_bool("rssi-packet", &config_device[6], 0x80, _e22900txx_config.rssi_packet);
-    __update_config_bool("mode-transmit", &config_device[6], 0x40, _e22900txx_config.transmission_method == E22900T22_CONFIG_TRANSMISSION_METHOD_FIXEDPOINT);
-    __update_config_bool("mode-relay", &config_device[6], 0x20, _e22900txx_config.relay_enabled);
-    __update_config_bool("listen-before-transmit", &config_device[6], 0x10, _e22900txx_config.listen_before_transmit);
+    // [6] REG3: rssi_packet (7), transmission_method (6), relay (5), lbt (4), wor_enable (3), wor_cycle (2:0)
+    __update_config_bits("rssi-packet", &config_device[6], 7, 1, (uint16_t)_e22900txx_config.rssi_packet);
+    __update_config_bits("mode-transmit", &config_device[6], 6, 1, (uint16_t)(_e22900txx_config.transmission_method == E22900T22_CONFIG_TRANSMISSION_METHOD_FIXEDPOINT));
+    __update_config_bits("mode-relay", &config_device[6], 5, 1, (uint16_t)_e22900txx_config.relay_enabled);
+    __update_config_bits("listen-before-transmit", &config_device[6], 4, 1, (uint16_t)_e22900txx_config.listen_before_transmit);
 #ifdef E22900T22_SUPPORT_MODULE_DIP
-    __update_config_bool("wor-enabled", &config_device[6], 0x08, _e22900txx_config.wor_enabled);
-    const uint16_t wor_cycle = (uint16_t)E22900T22_CONFIG_WOR_CYCLE_MIN + (uint16_t)((config_device[6] & 0x07) * E22900T22_CONFIG_WOR_CYCLE_INCREMENT);
-    if (wor_cycle != _e22900txx_config.wor_cycle) {
-        const uint8_t wor_index = config_device[6] & 0x07, wor_index_b = (uint8_t)(((_e22900txx_config.wor_cycle - E22900T22_CONFIG_WOR_CYCLE_MIN) / E22900T22_CONFIG_WOR_CYCLE_INCREMENT) & 0x07);
-        PRINTF_INFO("device: update_configuration: wor-cycle: %" PRIu8 " (%" PRIu16 "ms) --> %" PRIu8 " (%" PRIu16 "ms)\n", wor_index, wor_cycle, wor_index_b, _e22900txx_config.wor_cycle);
-        config_device[6] = (config_device[6] ^ wor_index) | wor_index_b;
+    if (_e22900txx_module == E22900T22_MODULE_DIP) {
+        __update_config_bits("wor-enabled", &config_device[6], 3, 1, (uint16_t)_e22900txx_config.wor_enabled);
+        __update_config_bits("wor-cycle", &config_device[6], 0, 3, (uint16_t)((_e22900txx_config.wor_cycle - E22900T22_CONFIG_WOR_CYCLE_MIN) / E22900T22_CONFIG_WOR_CYCLE_INCREMENT));
     }
 #endif
-    const uint16_t crypt = (uint16_t)config_device[7] << 8 | config_device[8];
-    if (crypt != _e22900txx_config.crypt) {
-        PRINTF_INFO("device: update_configuration: crypt: 0x%04" PRIX16 " --> 0x%04" PRIX16 "\n", crypt, _e22900txx_config.crypt);
-        config_device[7] = (uint8_t)(_e22900txx_config.crypt >> 8);
-        config_device[8] = (uint8_t)(_e22900txx_config.crypt & 0xFF);
-    }
 
-    const bool update_required = memcmp(config_device_orig, config_device, E22900T22_DEVICE_MOD_CONF_SIZE_WRITE) != 0;
+    // [7:8] CRYPT
+    __update_config_bits("crypt", &config_device[7], 0, 16, _e22900txx_config.crypt);
 
-    return update_required;
+    return memcmp(config_device_orig, config_device, E22900T22_DEVICE_MOD_CONF_SIZE_WRITE) != 0;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
