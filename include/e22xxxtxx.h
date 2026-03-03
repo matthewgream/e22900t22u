@@ -62,6 +62,15 @@ extern void __sleep_ms(const uint32_t ms);
 #define E22900T22_CONFIG_TRANSMISSION_METHOD_DEFAULT     E22900T22_CONFIG_TRANSMISSION_METHOD_TRANSPARENT
 #define E22900T22_CONFIG_RELAY_ENABLED_DEFAULT           false
 
+// Device frequency IDs (from product info FREQUENCY field)
+// To discover an unknown ID: connect the device, read product info, check the frequency byte.
+// #define E22XXXTXX_FREQUENCY_170                       ?? // E22-170Txx (needs verification with device)
+// #define E22XXXTXX_FREQUENCY_230                       ?? // E22-230Txx (needs verification with device)
+// #define E22XXXTXX_FREQUENCY_400                       ?? // E22-400Txx (needs verification with device)
+// #define E22XXXTXX_FREQUENCY_433                       ?? // E22-433Txx (needs verification with device)
+#define E22XXXTXX_FREQUENCY_868                          11 // E22-868Txx / E22-900Txx (verified)
+// #define E22XXXTXX_FREQUENCY_915                       ?? // E22-915Txx (needs verification with device)
+
 typedef struct {
     uint16_t name;
     uint8_t version, maxpower, frequency, type;
@@ -738,18 +747,17 @@ static const char *get_uart_parity(const uint8_t reg) {
 }
 
 static const char *get_packet_rate(const uint8_t reg) {
-    static const struct __packet_rate_reg {
-        const char *rates[8];
-    } map[] = {
-        // { { "0.3kbps", "1.2kbps", "2.4kbps (Default)", "4.8kbps", "9.6kbps", "19.2kbps", "38.4kbps", "62.5kbps" } }, // E22-900T22D/900T30D
-        { { "2.4kbps", "2.4kbps", "2.4kbps (Default)", "4.8kbps", "9.6kbps", "19.2kbps", "38.4kbps", "62.5kbps" } }, // E22-400/900T22U
-        { { "2.4kbps", "2.4kbps", "2.4kbps (Default)", "2.4kbps", "4.8kbps", "9.6kbps", "15.6kbps", "15.6kbps" } }   // E22-230T22U
-    };
+    // Rate mapping varies by device frequency, not module type (U/D)
+    static const char *rates_high[] = { "2.4kbps", "2.4kbps", "2.4kbps (Default)", "4.8kbps", "9.6kbps", "19.2kbps", "38.4kbps", "62.5kbps" }; // 400/433/868/915MHz
+    // static const char *rates_low[] = { "2.4kbps", "2.4kbps", "2.4kbps (Default)", "2.4kbps", "4.8kbps", "9.6kbps", "15.6kbps", "15.6kbps" };   // 170/230MHz
     switch (_e22900txx_device.frequency) {
-    // case ??: return __packet_rate_map [1].rate_map [reg & 0x07]; // E22-230Txx
-    // case ??: // E22-400Txx
-    case 11:
-        return map[0].rates[reg & 0x07]; // E22-900Txx
+    // case E22XXXTXX_FREQUENCY_170: return rates_low[reg & 0x07];
+    // case E22XXXTXX_FREQUENCY_230: return rates_low[reg & 0x07];
+    // case E22XXXTXX_FREQUENCY_400: return rates_high[reg & 0x07];
+    // case E22XXXTXX_FREQUENCY_433: return rates_high[reg & 0x07];
+    case E22XXXTXX_FREQUENCY_868:
+        return rates_high[reg & 0x07];
+    // case E22XXXTXX_FREQUENCY_915: return rates_high[reg & 0x07];
     default:
         return "UNKNOWN";
     }
@@ -799,10 +807,13 @@ static const char *get_enabled(const uint8_t value) {
 
 static uint32_t get_frequency1000(const uint8_t channel) {
     switch (_e22900txx_device.frequency) {
-    // case ??: return 220.125 + (channel * 0.25); // E22-230Txx
-    // case ??: return 410.125 + (channel * 1.0); // E22-400Txx
-    case 11:
-        return 850125 + (uint32_t)(channel * 1000); // E22-900Txx
+    // case E22XXXTXX_FREQUENCY_170: return ?????? + (uint32_t)(channel * 250);  // E22-170Txx (base frequency unknown)
+    // case E22XXXTXX_FREQUENCY_230: return 220125 + (uint32_t)(channel * 250);  // E22-230Txx
+    // case E22XXXTXX_FREQUENCY_400: return 410125 + (uint32_t)(channel * 1000); // E22-400Txx
+    // case E22XXXTXX_FREQUENCY_433: return 410125 + (uint32_t)(channel * 1000); // E22-433Txx (assumed same as 400)
+    case E22XXXTXX_FREQUENCY_868:
+        return 850125 + (uint32_t)(channel * 1000); // E22-868Txx / E22-900Txx
+    // case E22XXXTXX_FREQUENCY_915: return 900125 + (uint32_t)(channel * 1000); // E22-915Txx
     default:
         return 0;
     }
