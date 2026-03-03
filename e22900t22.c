@@ -2,7 +2,7 @@
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
 /*
- * E22-900T22D Tester (Raspberry Pi Zero - DIP module via GPIO)
+ * E22-900T22D Tester (Raspberry Pi - USB or DIP)
  *
  * This program connects to an E22-900T22D LoRa module by either USB or DIP (UART and GPIO),
  * switches to configuration mode, reads its configuration registers in configuration mode,
@@ -72,7 +72,7 @@ void __sleep_ms(const uint32_t ms) {
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
-// DIP 
+// DIP
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
 #ifdef E22900T22_SUPPORT_MODULE_DIP
@@ -218,14 +218,14 @@ int main(int argc __attribute__((unused)), char *argv[] __attribute__((unused)))
 
     if (!serial_begin(&serial_config) || !serial_connect()) {
         fprintf(stderr, "device: failed to connect (port=%s, rate=%d, bits=%s)\n", serial_config.port, serial_config.rate, serial_bits_str(serial_config.bits));
-	goto exit_fail_gpio;
+        goto exit_fail_gpio;
     }
 
     if (!device_connect(E22900T22_MODULE_DIP, &e22900t22_config))
-	goto exit_fail_serial;
+        goto exit_fail_serial;
     printf("device: connected (port=%s, rate=%d, bits=%s)\n", serial_config.port, serial_config.rate, serial_bits_str(serial_config.bits));
     if (!(device_mode_config() && device_info_read() && device_config_read_and_update() && device_mode_transfer()))
-	goto exit_fail_device;
+        goto exit_fail_device;
 
     device_packet_read_and_display(&running);
 

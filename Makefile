@@ -29,13 +29,17 @@ else
 endif
 CFLAGS=$(CFLAGS_COMMON) $(CFLAGS_STRICT) $(CFLAGS_DEFINES) $(CFLAGS_OPT) $(CFLAGS_INCLUDES) $(CFLAGS_NO_FLOATING_POINT)
 LDFLAGS=
-TARGET=e22900t22u
+TARGET=e22900t22
 SOURCES=include/serial_linux.h include/config_linux.h include/mqtt_linux.h include/util_linux.h include/e22xxxtxx.h
 HOSTNAME=$(shell hostname)
 
 ##
 
 all: $(TARGET)-usb $(TARGET)-dip $(TARGET)tomqtt
+
+usb: $(TARGET)-usb
+dip: $(TARGET)-dip
+tomqtt: $(TARGET)tomqtt
 
 $(TARGET)-usb: $(TARGET).c $(SOURCES)
 	$(CC) $(CFLAGS) -DE22900T22_SUPPORT_MODULE_USB -o $(TARGET)-usb $(TARGET).c $(LDFLAGS)

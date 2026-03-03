@@ -1,4 +1,4 @@
-mqtt-client=e22900t22utomqtt
+mqtt-client=e22900t22tomqtt
 mqtt-server=mqtt://localhost
 address=0x0008
 network=0x00
@@ -9,4 +9,4 @@ rssi-channel=true
 data-type=json-convert
 topic-route.0.key=0
 topic-route.0.value=5B
-topic-route.0.topic=e22900t22u/icedepth
+topic-route.0.topic=e22900t22/icedepth

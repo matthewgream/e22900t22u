@@ -3,7 +3,7 @@
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
 /*
- * E22-900T22U to MQTT
+ * E22-900T22 to MQTT
  */
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
@@ -24,10 +24,10 @@
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
 bool debug_readandsend = false;
-bool debug_e22900t22u = false;
+bool debug_e22900t22 = false;
 
 void printf_debug(const char *format, ...) {
-    if (!debug_e22900t22u)
+    if (!debug_e22900t22)
         return;
     va_list args;
     va_start(args, format);
@@ -64,15 +64,15 @@ void __sleep_ms(const uint32_t ms) {
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
-#define CONFIG_FILE_DEFAULT    "e22900t22utomqtt.cfg"
+#define CONFIG_FILE_DEFAULT    "e22900t22tomqtt.cfg"
 
 #define SERIAL_PORT_DEFAULT    "/dev/e22900t22u"
 #define SERIAL_RATE_DEFAULT    9600
 #define SERIAL_BITS_DEFAULT    SERIAL_8N1
 
-#define MQTT_CLIENT_DEFAULT    "e22900t22utomqtt"
+#define MQTT_CLIENT_DEFAULT    "e22900t22tomqtt"
 #define MQTT_SERVER_DEFAULT    "mqtt://localhost"
-#define MQTT_TOPIC_DEFAULT     "e22900t22u"
+#define MQTT_TOPIC_DEFAULT     "e22900t22"
 
 #define INTERVAL_STAT_DEFAULT  5 * 60
 #define INTERVAL_RSSI_DEFAULT  1 * 60
@@ -102,7 +102,7 @@ const struct option config_options [] = {
     {"interval-stat",         required_argument, 0, 0},
     {"interval-rssi",         required_argument, 0, 0},
     {"data-type",             required_argument, 0, 0},
-    {"debug-e22900t22u",      required_argument, 0, 0},
+    {"debug-e22900t22",       required_argument, 0, 0},
     {"debug",                 required_argument, 0, 0},
     {0, 0, 0, 0}
 };
@@ -116,7 +116,7 @@ void config_populate_serial(serial_config_t *cfg) {
     printf("config: serial: port=%s, rate=%d, bits=%s\n", cfg->port, cfg->rate, serial_bits_str(cfg->bits));
 }
 
-void config_populate_e22900t22u(e22900t22_config_t *cfg) {
+void config_populate_e22900t22(e22900t22_config_t *cfg) {
     cfg->address = (uint16_t)config_get_integer("address", E22900T22_CONFIG_ADDRESS_DEFAULT);
     cfg->network = (uint8_t)config_get_integer("network", E22900T22_CONFIG_NETWORK_DEFAULT);
     cfg->channel = (uint8_t)config_get_integer("channel", E22900T22_CONFIG_CHANNEL_DEFAULT);
@@ -133,7 +133,7 @@ void config_populate_e22900t22u(e22900t22_config_t *cfg) {
     cfg->read_timeout_packet = (uint32_t)config_get_integer("read-timeout-packet", E22900T22_CONFIG_READ_TIMEOUT_PACKET_DEFAULT);
     cfg->debug = config_get_bool("debug", false);
 
-    printf("config: e22900t22u: address=0x%04" PRIX16 ", network=0x%02" PRIX8 ", channel=%d, packet-size=%d, packet-rate=%d, rssi-channel=%s, rssi-packet=%s, mode-listen-before-tx=%s, read-timeout-command=%" PRIu32
+    printf("config: e22900t22: address=0x%04" PRIX16 ", network=0x%02" PRIX8 ", channel=%d, packet-size=%d, packet-rate=%d, rssi-channel=%s, rssi-packet=%s, mode-listen-before-tx=%s, read-timeout-command=%" PRIu32
            ", read-timeout-packet=%" PRIu32 ", crypt=%04" PRIX16 ", transmit-power=%" PRIu8 ", transmission-method=%s, mode-relay=%s, debug=%s\n",
            cfg->address, cfg->network, cfg->channel, cfg->packet_maxsize, cfg->packet_maxrate, cfg->rssi_channel ? "on" : "off", cfg->rssi_packet ? "on" : "off", cfg->listen_before_transmit ? "on" : "off", cfg->read_timeout_command,
            cfg->read_timeout_packet, cfg->crypt, cfg->transmit_power, cfg->transmission_method == E22900T22_CONFIG_TRANSMISSION_METHOD_TRANSPARENT ? "transparent" : "fixed-point", cfg->relay_enabled ? "on" : "off",
@@ -286,7 +286,8 @@ void read_and_send(volatile bool *running, const data_type_t data_type) {
     uint8_t packet_buffer[PACKET_BUFFER_MAX];
     int packet_size;
 
-    printf("read-and-publish (stat=%" PRIu32 "s, rssi=%" PRIu32 "s [packets=%c, channel=%c], data-type=%s)\n", (uint32_t) interval_stat, (uint32_t) interval_rssi, capture_rssi_packet ? 'y' : 'n', capture_rssi_channel ? 'y' : 'n', data_type_tostring(data_type));
+    printf("read-and-publish (stat=%" PRIu32 "s, rssi=%" PRIu32 "s [packets=%c, channel=%c], data-type=%s)\n", (uint32_t)interval_stat, (uint32_t)interval_rssi, capture_rssi_packet ? 'y' : 'n', capture_rssi_channel ? 'y' : 'n',
+           data_type_tostring(data_type));
 
     while (*running) {
 
@@ -374,7 +375,7 @@ void read_and_send(volatile bool *running, const data_type_t data_type) {
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
 serial_config_t serial_config;
-e22900t22_config_t e22900t22u_config;
+e22900t22_config_t e22900t22_config;
 const char *mqtt_client, *mqtt_server;
 data_type_t data_type;
 
@@ -384,7 +385,7 @@ bool config_setup(int argc, char *argv[]) {
         return false;
 
     config_populate_serial(&serial_config);
-    config_populate_e22900t22u(&e22900t22u_config);
+    config_populate_e22900t22(&e22900t22_config);
     config_populate_topic_routes(MQTT_TOPIC_DEFAULT);
     mqtt_client = config_get_string("mqtt-client", MQTT_CLIENT_DEFAULT);
     mqtt_server = config_get_string("mqtt-server", MQTT_SERVER_DEFAULT);
@@ -396,7 +397,7 @@ bool config_setup(int argc, char *argv[]) {
 
     data_type = data_type_parse(config_get_string("data-type", DATA_TYPE_TYPE_DEFAULT));
 
-    debug_e22900t22u = config_get_integer("debug-e22900t22u", false);
+    debug_e22900t22 = config_get_integer("debug-e22900t22", false);
     debug_readandsend = config_get_bool("debug", false);
 
     return true;
@@ -429,7 +430,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "device: failed to connect (port=%s, rate=%d, bits=%s)\n", serial_config.port, serial_config.rate, serial_bits_str(serial_config.bits));
         return EXIT_FAILURE;
     }
-    if (!device_connect(E22900T22_MODULE_USB, &e22900t22u_config)) {
+    if (!device_connect(E22900T22_MODULE_USB, &e22900t22_config)) {
         serial_end();
         return EXIT_FAILURE;
     }

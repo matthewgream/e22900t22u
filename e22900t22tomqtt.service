@@ -7,7 +7,7 @@ BindsTo=dev-e22900t22u.device
 
 [Service]
 Type=simple
-ExecStart=/opt/e22900t22u/e22900t22utomqtt --config /opt/e22900t22u/e22900t22utomqtt.cfg
+ExecStart=/opt/e22900t22/e22900t22tomqtt --config /opt/e22900t22/e22900t22tomqtt.cfg
 TimeoutStopSec=15s
 KillMode=mixed
 Restart=on-failure
