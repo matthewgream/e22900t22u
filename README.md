@@ -44,14 +44,14 @@ Note that the 30 dBm versions do run at 3V3 but are recommended to use 5V0 to ac
 
 ### Wiring (Pi → E22 DIP)
 
-| Function | Pi Pin | GPIO |
-|----------|--------|------|
-| VCC | Pin 1 (3.3V) | — |
-| GND | Pin 6 (GND) | — |
-| TXD | Pin 10 (RXD) | GPIO 15 |
-| RXD | Pin 8 (TXD) | GPIO 14 |
-| M0 | Pin 11 | GPIO 17 |
-| M1 | Pin 13 | GPIO 27 |
-| AUX | Pin 15 | GPIO 22 |
+| Function | Pi Pin       | GPIO    |
+| -------- | ------------ | ------- |
+| VCC      | Pin 1 (3.3V) | —       |
+| GND      | Pin 6 (GND)  | —       |
+| TXD      | Pin 10 (RXD) | GPIO 15 |
+| RXD      | Pin 8 (TXD)  | GPIO 14 |
+| M0       | Pin 11       | GPIO 17 |
+| M1       | Pin 13       | GPIO 27 |
+| AUX      | Pin 15       | GPIO 22 |
 
 ![Pi wired to E22-900T30D](specs/Pi_E22900T30D.jpg)
