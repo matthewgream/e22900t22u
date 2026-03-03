@@ -29,19 +29,7 @@ extern void __sleep_ms(const uint32_t ms);
 #error "both E22900T22_SUPPORT_NO_TRANSMIT and E22900T22_SUPPORT_NO_RECEIVE defined"
 #endif
 
-#define E22900T22_PACKET_MAXSIZE_32                      32
-#define E22900T22_PACKET_MAXSIZE_64                      64
-#define E22900T22_PACKET_MAXSIZE_128                     128
-#define E22900T22_PACKET_MAXSIZE_240                     240
-#define E22900T22_PACKET_MAXSIZE                         E22900T22_PACKET_MAXSIZE_240
-
-#define E22900T22_PACKET_MAXRATE_2400                    2
-#define E22900T22_PACKET_MAXRATE_4800                    4
-#define E22900T22_PACKET_MAXRATE_9600                    9
-#define E22900T22_PACKET_MAXRATE_19200                   19
-#define E22900T22_PACKET_MAXRATE_38400                   38
-#define E22900T22_PACKET_MAXRATE_62500                   62
-#define E22900T22_PACKET_MAXRATE                         E22900T22_PACKET_MAXRATE_62500
+#define E22900T22_PACKET_MAXSIZE                         240
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------------------------
@@ -54,8 +42,12 @@ extern void __sleep_ms(const uint32_t ms);
 #define E22900T22_CONFIG_RSSI_CHANNEL_DEFAULT            true
 #define E22900T22_CONFIG_READ_TIMEOUT_COMMAND_DEFAULT    1000
 #define E22900T22_CONFIG_READ_TIMEOUT_PACKET_DEFAULT     5000
-#define E22900T22_CONFIG_PACKET_MAXSIZE_DEFAULT          E22900T22_PACKET_MAXSIZE_240
-#define E22900T22_CONFIG_PACKET_MAXRATE_DEFAULT          E22900T22_PACKET_MAXRATE_2400
+#define E22900T22_CONFIG_PACKET_SIZE_DEFAULT             0
+#define E22900T22_CONFIG_PACKET_SIZE_MIN                 0
+#define E22900T22_CONFIG_PACKET_SIZE_MAX                 3
+#define E22900T22_CONFIG_PACKET_RATE_DEFAULT             2
+#define E22900T22_CONFIG_PACKET_RATE_MIN                 0
+#define E22900T22_CONFIG_PACKET_RATE_MAX                 7
 #define E22900T22_CONFIG_CRYPT_DEFAULT                   0x0000
 #define E22900T22_CONFIG_WOR_ENABLED_DEFAULT             false
 #define E22900T22_CONFIG_WOR_CYCLE_DEFAULT               2000
@@ -84,8 +76,8 @@ typedef struct {
     uint16_t address;
     uint8_t network;
     uint8_t channel;
-    uint8_t packet_maxsize;
-    uint8_t packet_maxrate;
+    uint8_t packet_size;
+    uint8_t packet_rate;
     uint16_t crypt;
 #ifdef E22900T22_SUPPORT_MODULE_DIP
     bool wor_enabled;
@@ -115,6 +107,7 @@ static const char *get_uart_rate(const uint8_t value);
 static const char *get_uart_parity(const uint8_t value);
 static const char *get_packet_rate(const uint8_t value);
 static const char *get_packet_size(const uint8_t value);
+static uint16_t get_packet_size_bytes(const uint8_t index);
 static const char *get_transmit_power(const uint8_t value);
 static const char *get_mode_transmit(const uint8_t value);
 #ifdef E22900T22_SUPPORT_MODULE_DIP
@@ -179,7 +172,7 @@ static bool device_wait_ready(void) {
 // -----------------------------------------------------------------------------------------------------------------------------------------
 
 static bool device_packet_write(const uint8_t *packet, const int length) {
-    if (length <= 0 || length > _e22900txx_config.packet_maxsize)
+    if (length <= 0 || length > get_packet_size_bytes(_e22900txx_config.packet_size))
         return false;
     return serial_write(packet, length) == length;
 }
@@ -538,10 +531,10 @@ static bool update_configuration(uint8_t *config_device) {
     // [3] REG0: uart_rate (7:5), uart_parity (4:3), packet_rate (2:0)
     // XXX uart_rate
     // XXX uart_parity
-    // XXX packet_rate
+    __update_config_bits("packet-rate", &config_device[3], 0, 3, (uint16_t)_e22900txx_config.packet_rate);
 
     // [4] REG1: packet_size (7:6), rssi_channel (5), reserved (4:3), switch_config_serial (2), transmit_power (1:0)
-    // XXX packet_size
+    __update_config_bits("packet-size", &config_device[4], 6, 2, (uint16_t)_e22900txx_config.packet_size);
     __update_config_bits("rssi-channel", &config_device[4], 5, 1, (uint16_t)_e22900txx_config.rssi_channel);
 #ifdef E22900T22_SUPPORT_MODULE_USB
     if (_e22900txx_module == E22900T22_MODULE_USB)
@@ -579,13 +572,9 @@ static bool device_config(const e22900t22_config_t *config_device) {
         _e22900txx_config.read_timeout_command = E22900T22_CONFIG_READ_TIMEOUT_COMMAND_DEFAULT;
     if (!_e22900txx_config.read_timeout_packet)
         _e22900txx_config.read_timeout_packet = E22900T22_CONFIG_READ_TIMEOUT_PACKET_DEFAULT;
-    if (!_e22900txx_config.packet_maxsize)
-        _e22900txx_config.packet_maxsize = E22900T22_CONFIG_PACKET_MAXSIZE_DEFAULT;
-    else if (_e22900txx_config.packet_maxsize > E22900T22_PACKET_MAXSIZE_240)
+    if (_e22900txx_config.packet_size > E22900T22_CONFIG_PACKET_SIZE_MAX)
         return false;
-    if (!_e22900txx_config.packet_maxrate)
-        _e22900txx_config.packet_maxrate = E22900T22_CONFIG_PACKET_MAXRATE_DEFAULT;
-    else if (_e22900txx_config.packet_maxrate > E22900T22_PACKET_MAXRATE_62500)
+    if (_e22900txx_config.packet_rate > E22900T22_CONFIG_PACKET_RATE_MAX)
         return false;
 #ifdef E22900T22_SUPPORT_MODULE_DIP
     if (!_e22900txx_config.wor_cycle)
@@ -686,7 +675,7 @@ static void device_packet_read_and_display(volatile bool *is_active) {
     uint8_t rssi;
 
     while (*is_active) {
-        if (device_packet_read(packet_buffer, _e22900txx_config.packet_maxsize + 1, &packet_size, &rssi) && *is_active)
+        if (device_packet_read(packet_buffer, get_packet_size_bytes(_e22900txx_config.packet_size) + 1, &packet_size, &rssi) && *is_active)
             device_packet_display(packet_buffer, packet_size, rssi);
         else if (*is_active) {
             if (device_channel_rssi_read(&rssi) && *is_active)
@@ -729,6 +718,11 @@ static const char *get_packet_rate(const uint8_t reg) {
 static const char *get_packet_size(const uint8_t reg) {
     static const char *map[] = { "240bytes (Default)", "128bytes", "64bytes", "32bytes" };
     return map[(reg >> 6) & 0x03];
+}
+
+static uint16_t get_packet_size_bytes(const uint8_t index) {
+    static const uint16_t map[] = { 240, 128, 64, 32 };
+    return map[index & 0x03];
 }
 
 static const char *get_transmit_power(const uint8_t reg) {
