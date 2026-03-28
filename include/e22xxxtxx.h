@@ -790,7 +790,7 @@ static const char *get_transmit_power(const uint8_t reg) {
 }
 
 static const char *get_mode_transmit(const uint8_t reg) {
-    static const char *map[] = { "fixed-point", "transparent" };
+    static const char *map[] = { "transparent", "fixed-point" };
     return map[(reg >> 6) & 0x01];
 }
 
