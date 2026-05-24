@@ -15,8 +15,8 @@
  *   TXD  → GPIO 15 / RXD (Pin 10)
  *   RXD  → GPIO 14 / TXD (Pin 8)
  *   M0   → GPIO 17 (Pin 11)
- *   M1   → GPIO 27 (Pin 13)
- *   AUX  → GPIO 22 (Pin 15)
+ *   M1   → GPIO 18 (Pin 12)
+ *   AUX  → GPIO 4  (Pin 7)
  */
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
@@ -79,10 +79,20 @@ void __sleep_ms(const uint32_t ms) {
 
 #ifdef E22900T22_SUPPORT_MODULE_DIP
 
+// Pin assignments — override at build time, e.g.
+//   make dip CFLAGS_DEFINES="-DGPIO_M0=17 -DGPIO_M1=18 -DGPIO_AUX=4"
+#ifndef GPIO_CHIP
 #define GPIO_CHIP "/dev/gpiochip0"
+#endif
+#ifndef GPIO_M0
 #define GPIO_M0   17
-#define GPIO_M1   27
-#define GPIO_AUX  22
+#endif
+#ifndef GPIO_M1
+#define GPIO_M1   18
+#endif
+#ifndef GPIO_AUX
+#define GPIO_AUX  4
+#endif
 
 static struct gpiod_chip *gpio_chip = NULL;
 static struct gpiod_line_request *gpio_req_outputs = NULL;

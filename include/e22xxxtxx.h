@@ -747,17 +747,33 @@ static const char *get_uart_parity(const uint8_t reg) {
 }
 
 static const char *get_packet_rate(const uint8_t reg) {
-    // Rate mapping varies by device frequency, not module type (U/D)
-    static const char *rates_high[] = { "2.4kbps", "2.4kbps", "2.4kbps (Default)", "4.8kbps", "9.6kbps", "19.2kbps", "38.4kbps", "62.5kbps" }; // 400/433/868/915MHz
-    // static const char *rates_low[] = { "2.4kbps", "2.4kbps", "2.4kbps (Default)", "2.4kbps", "4.8kbps", "9.6kbps", "15.6kbps", "15.6kbps" };   // 170/230MHz
+    // Rate mapping varies by BOTH device frequency AND module type (U vs D).
+    // U-series firmware aliases indices 0/1/2 all to 2.4kbps; D-series exposes
+    // them as distinct 0.3k/1.2k/2.4k rates. Indices 3..7 match across both.
+    // Note that some D-variant devices (e.g. E22-900T22D at 900MHz) appear to
+    // clamp a write of index 0 back to 2 internally — confirmed by reading back
+    // the config register after the write; treat 0.3k as nominal-only on those.
+    static const char *rates_high_u[] = { "2.4kbps", "2.4kbps", "2.4kbps (Default)", "4.8kbps", "9.6kbps", "19.2kbps", "38.4kbps", "62.5kbps" }; // U @ 400/433/868/915MHz
+#ifdef E22900T22_SUPPORT_MODULE_DIP
+    static const char *rates_high_d[] = { "0.3kbps", "1.2kbps", "2.4kbps (Default)", "4.8kbps", "9.6kbps", "19.2kbps", "38.4kbps", "62.5kbps" }; // D @ 400/433/868/915MHz
+#endif
+    // Low-frequency (170/230MHz) tables left commented until a device is on
+    // hand to verify each module type independently.
+    // static const char *rates_low_u[] = { "2.4kbps", "2.4kbps", "2.4kbps (Default)", "2.4kbps", "4.8kbps", "9.6kbps", "15.6kbps", "15.6kbps" };
+    // static const char *rates_low_d[] = { "0.3kbps", "1.2kbps", "2.4kbps (Default)", "2.4kbps", "4.8kbps", "9.6kbps", "15.6kbps", "15.6kbps" };
     switch (_e22900txx_device.frequency) {
-    // case E22XXXTXX_FREQUENCY_170: return rates_low[reg & 0x07];
-    // case E22XXXTXX_FREQUENCY_230: return rates_low[reg & 0x07];
-    // case E22XXXTXX_FREQUENCY_400: return rates_high[reg & 0x07];
-    // case E22XXXTXX_FREQUENCY_433: return rates_high[reg & 0x07];
+    // case E22XXXTXX_FREQUENCY_170:
+    // case E22XXXTXX_FREQUENCY_230:
+    //     return (_e22900txx_module == E22900T22_MODULE_DIP) ? rates_low_d[reg & 0x07] : rates_low_u[reg & 0x07];
+    // case E22XXXTXX_FREQUENCY_400:
+    // case E22XXXTXX_FREQUENCY_433:
     case E22XXXTXX_FREQUENCY_868:
-        return rates_high[reg & 0x07];
-    // case E22XXXTXX_FREQUENCY_915: return rates_high[reg & 0x07];
+    // case E22XXXTXX_FREQUENCY_915:
+#ifdef E22900T22_SUPPORT_MODULE_DIP
+        if (_e22900txx_module == E22900T22_MODULE_DIP)
+            return rates_high_d[reg & 0x07];
+#endif
+        return rates_high_u[reg & 0x07];
     default:
         return "UNKNOWN";
     }
