@@ -2,7 +2,7 @@
 
 A portable and lightweight software Connector for the EBYTE E22 series (E22xxxTxxU/D) LoRa devices, supporting the USB module (Linux) and DIP module (Linux/ESP32) variants.
 
-Tested and in use with E22-900T22U (USB), E22-900T22D (DIP) and E22-900T30D (DIP). It should work for the entire series: 230, 400 and 900 MHz frequency and 20, 22, 30 and 33 dBm (max) power variants. Specifications for the devices are in the `specs` directory.
+Tested and in use with E22-900T22U (USB), E22-900T22D (DIP) and E22-900T30D (DIP). It should work for the entire series: 230, 400 and 900 MHz frequency and 20, 22, 30 and 33 dBm (max) power variants with only minor tweaks to settings (if any are needed). Specifications for the devices are in the `specs` directory.
 
 The E22 is based on the Semtech SX1262. Also in the EBYTE family are the E220 (older Semtech SX1276) and E32 ("low cost" Semtech LLCC68). The E22 is the newer and more featured product. The E220 and E32 should also work with this Connector with minor changes: the E220 lacks the NETID configuration field (making it one byte shorter) and repeater functionality; the E32 additionally lacks RSSI. More information on the family at [cdebyte.com](https://www.cdebyte.com/Module-SPISOCUART-SX12).
 
@@ -40,7 +40,7 @@ The Connector enables the "Software Mode Switching" register setting to read/wri
 
 The DIP module is wired to the Pi expansion header at 3V3 TTL levels. The Pi needs `serial-console` to be disabled.
 
-Note that the 30 dBm versions do run at 3V3 but are recommended to use 5V0 to achieve full TX power. If doing so using the Pi's 5V0, the GPIO logic levels may need to be level shifted (at least the input levels; the output levels from the Pi may be sufficient).
+Note that the 30 dBm versions do run at 3V3 but are recommended to use 5V0 to achieve full TX power. If doing so using the Pi's 5V0, the GPIO logic levels may need to be level shifted (at least the input levels; the output levels from the Pi may be sufficient). I have only tested 3V3 configuration, not 5V0.
 
 ### Wiring (Pi → E22 DIP)
 
@@ -62,7 +62,7 @@ The TXD/RXD pair is the Pi's hardware UART and is fixed by the kernel. The three
 make dip CFLAGS_DEFINES="-DGPIO_M0=17 -DGPIO_M1=18 -DGPIO_AUX=4"
 ```
 
-A photo of an example wiring:
+A photo of an example wiring follows. Since that earlier wiring, the pin usageh as been normalised to be co-located into a 2x6 IDC header block that neatly sits covers the top end of the Pi's header. Only 7 of the 12 pins are used.
 
 ![Pi wired to E22-900T30D](specs/Pi_E22900T30D.jpg)
 
