@@ -1,8 +1,9 @@
-e22900t22u
-e22900t22u.cfg
-e22900t22u.cfg-*
-e22900t22utomqtt
-e22900t22utomqtt.cfg
-e22900t22utomqtt.cfg-*
+e22900t22-dip
+e22900t22-usb
+e22900t22.cfg
+e22900t22.cfg-*
+e22900t22tomqtt
+e22900t22tomqtt.cfg
+e22900t22tomqtt.cfg-*
 .pio
 .vscode
