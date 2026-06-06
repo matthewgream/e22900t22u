@@ -295,6 +295,7 @@ void read_and_send(volatile bool *running, const data_type_t data_type) {
 
         if (device_packet_read(packet_buffer, E22900T22_PACKET_MAXSIZE + 1, &packet_size, &packet_rssi) && *running) {
             bool deliver = false;
+            const char *topic = route_topic_select(packet_buffer, packet_size, data_type);
             switch (data_type) {
             case DATA_TYPE_JSON:
                 if (!(deliver = is_reasonable_json(packet_buffer, packet_size))) {
@@ -332,7 +333,6 @@ void read_and_send(volatile bool *running, const data_type_t data_type) {
                 break;
             }
             if (deliver) {
-                const char *topic = route_topic_select(packet_buffer, packet_size, data_type);
                 if (topic) {
                     if (capture_rssi_packet)
                         ema_update(packet_rssi, &stat_packet_rssi_ema, &stat_packet_rssi_cnt);
