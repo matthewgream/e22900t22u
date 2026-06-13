@@ -85,13 +85,13 @@ void __sleep_ms(const uint32_t ms) {
 #define GPIO_CHIP "/dev/gpiochip0"
 #endif
 #ifndef GPIO_M0
-#define GPIO_M0   17
+#define GPIO_M0 17
 #endif
 #ifndef GPIO_M1
-#define GPIO_M1   18
+#define GPIO_M1 18
 #endif
 #ifndef GPIO_AUX
-#define GPIO_AUX  4
+#define GPIO_AUX 4
 #endif
 
 static struct gpiod_chip *gpio_chip = NULL;

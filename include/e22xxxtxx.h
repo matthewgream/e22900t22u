@@ -768,7 +768,7 @@ static const char *get_packet_rate(const uint8_t reg) {
     // case E22XXXTXX_FREQUENCY_400:
     // case E22XXXTXX_FREQUENCY_433:
     case E22XXXTXX_FREQUENCY_868:
-    // case E22XXXTXX_FREQUENCY_915:
+        // case E22XXXTXX_FREQUENCY_915:
 #ifdef E22900T22_SUPPORT_MODULE_DIP
         if (_e22900txx_module == E22900T22_MODULE_DIP)
             return rates_high_d[reg & 0x07];
