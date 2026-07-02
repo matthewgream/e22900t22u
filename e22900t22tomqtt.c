@@ -397,7 +397,7 @@ bool config_setup(int argc, char *argv[]) {
 
     data_type = data_type_parse(config_get_string("data-type", DATA_TYPE_TYPE_DEFAULT));
 
-    debug_e22900t22 = config_get_integer("debug-e22900t22", false);
+    debug_e22900t22 = config_get_bool("debug-e22900t22", false);
     debug_readandsend = config_get_bool("debug", false);
 
     return true;
