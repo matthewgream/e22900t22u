@@ -836,13 +836,19 @@ static uint32_t get_frequency1000(const uint8_t channel) {
 }
 
 static int get_rssi_dbm(const uint8_t rssi) {
+    // Both the DIP and USB datasheets specify the *channel RSSI register* formula
+    // (DIP: -(256-rssi), USB: -RSSI/2) but are silent on the per-packet RSSI byte.
+    // Empirically the USB packet RSSI is -(256-rssi), matching the DIP: same SX1262
+    // silicon, so the byte is encoded identically. The USB "-RSSI/2" is treated as a
+    // datasheet error and -(256-rssi) is used wholesale for both modules / both cases
+    // (verified against reciprocity: co-located gateway<->relay links now agree).
 #ifdef E22900T22_SUPPORT_MODULE_DIP
     if (_e22900txx_module == E22900T22_MODULE_DIP)
         return -(256 - rssi);
 #endif
 #ifdef E22900T22_SUPPORT_MODULE_USB
     if (_e22900txx_module == E22900T22_MODULE_USB)
-        return -(((int)rssi) / 2);
+        return -(256 - rssi);
 #endif
     return 0;
 }
